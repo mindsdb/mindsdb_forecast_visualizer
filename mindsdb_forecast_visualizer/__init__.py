@@ -1,0 +1,1 @@
+from mindsdb_forecast_visualizer.__about__ import __package_name__ as name, __version__
