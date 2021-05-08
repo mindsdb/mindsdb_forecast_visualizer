@@ -4,15 +4,10 @@ import plotly.io as pio
 from mindsdb_forecast_visualizer.config import COLORS
 
 
-# from ipywidgets import interact, interactive, fixed, interact_manual
-
-
 def plot(time, real, predicted, confa, confb, labels, anomalies=None):
     """ We use Plotly to generate forecasting visualizations
     """
-
-    # TODO check it works okay
-    pio.renderers.default = "browser"  # turn this off to see graphs inline
+    # pio.renderers.default = "browser"  # uncomment to force plots in web browser (persistent)
 
     fig = go.Figure()
 
@@ -21,8 +16,7 @@ def plot(time, real, predicted, confa, confb, labels, anomalies=None):
                                  name='Confidence',
                                  fill=None,
                                  mode='lines',
-                                 # TODO: is this one too strong?
-                                 line=dict(color=COLORS.SLATEGREY, width=0)))  # '#919EA5'
+                                 line=dict(color=COLORS.SLATEGREY, width=0)))
 
         fig.add_trace(go.Scatter(x=time, y=confb,
                                  name='Confidence',
