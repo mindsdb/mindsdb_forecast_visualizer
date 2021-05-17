@@ -28,7 +28,7 @@ if __name__ == '__main__':
 
     pred_path = None  # set if predictor was saved in a non-default location (or e.g. a previous native version)
     if pred_path is None and mode == 'Native':
-        pred_path = '/Users/Pato/Work/MindsDB/mindsdb_native/mindsdb_native/mindsdb_storage/' + \
+        pred_path = '/mindsdb_native/mindsdb_native/mindsdb_storage/' + \
                     mindsdb_native.__version__.replace('.', '_')
     elif pred_path is None and mode == 'SDK':
         pred_path = '/storage/predictors'
