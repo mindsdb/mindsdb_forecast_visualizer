@@ -7,7 +7,7 @@ from mindsdb_native import CONFIG, Predictor
 from mindsdb_forecast_visualizer.core.forecaster import forecast
 
 
-def visualize(predictor_name, df, subset=None, mode='Native', pred_path=None, rolling=1):
+def visualize(predictor_name, df, params=None, subset=None, mode='Native', pred_path=None, rolling=1):
     if mode == 'Native':
         # Path configuration
         mdb_path = mindsdb.root_storage_dir  if not pred_path else pred_path
@@ -16,15 +16,7 @@ def visualize(predictor_name, df, subset=None, mode='Native', pred_path=None, ro
 
         mdb_predictor = Predictor(name=predictor_name)
 
-        # TODO: fetch these automatically from training params
-        params = {
-            'order': ['T'],
-            'target': 'Traffic',
-            'group': ['Country'],
-            'window': 3,
-            'nr_predictions': 1,
-            'pred_name': predictor_name
-        }
+        # TODO: fetch params automatically from training params
 
         forecast(mdb_predictor,
                  df,
