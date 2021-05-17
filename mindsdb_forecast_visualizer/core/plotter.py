@@ -7,7 +7,7 @@ from mindsdb_forecast_visualizer.config import COLORS
 def plot(time, real, predicted, confa, confb, labels, anomalies=None):
     """ We use Plotly to generate forecasting visualizations
     """
-    # pio.renderers.default = "browser"  # uncomment to force plots in web browser (persistent)
+    pio.renderers.default = "browser"  # comment to use default plotter instead of persistent web browser tabs
 
     fig = go.Figure()
 

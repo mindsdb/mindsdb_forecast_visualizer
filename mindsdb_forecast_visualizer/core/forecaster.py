@@ -39,7 +39,7 @@ def forecast(model, data, params, subset=None, rolling=1, show_anomaly=False):
                 filtered_data = deepcopy(filtered_data[filtered_data[k] == v])
 
         filtered_data = filtered_data.drop_duplicates(subset=order)
-        filtered_data = filtered_data.sort_values(by=order)
+        # filtered_data = filtered_data.sort_values(by=order)  # RM, this one kills plotting as it may have different logic from MDB ordering
 
         if filtered_data.shape[0] > 0:
             preds = model.predict(when_data=filtered_data, advanced_args=advanced_args)
