@@ -26,6 +26,16 @@ if __name__ == '__main__':
     # Set rolling amount of predictions (1 if predictor was trained for t+N with N>1)
     rolling = 1
 
+    # Set other predictor parameters (NOTE: this will be automatically retrieved soon)
+    params = {
+        'order': ['T'],
+        'target': 'Traffic',
+        'group': ['Country'],
+        'window': 10,
+        'nr_predictions': 1,
+        'pred_name': predictor_name
+    }
+
     pred_path = None  # set if predictor was saved in a non-default location (or e.g. a previous native version)
     if pred_path is None and mode == 'Native':
         pred_path = '/mindsdb_native/mindsdb_native/mindsdb_storage/' + \
@@ -36,6 +46,7 @@ if __name__ == '__main__':
     # Plot!
     visualize(predictor_name,
               query_df,
+              params=params,
               subset=subset,
               mode=mode,
               rolling=rolling,
