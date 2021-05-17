@@ -38,6 +38,9 @@ def forecast(model, data, params, subset=None, rolling=1, show_anomaly=False):
             for k, v in group_dict.items():
                 filtered_data = deepcopy(filtered_data[filtered_data[k] == v])
 
+        filtered_data = filtered_data.drop_duplicates(subset=order)
+        filtered_data = filtered_data.sort_values(by=order)
+
         if filtered_data.shape[0] > 0:
             preds = model.predict(when_data=filtered_data, advanced_args=advanced_args)
             observed = preds._data[f"__observed_{params['target']}"]
@@ -65,7 +68,11 @@ def forecast(model, data, params, subset=None, rolling=1, show_anomaly=False):
                               }
                     results = pd.DataFrame.from_dict(p._data)
                     time_target = list(filtered_data[order].values.flatten())
-                    real_target = [float(r) for r in results[f'__observed_{target}']]
+                    if any(results[f'__observed_{target}']):
+                        real_target = [float(r) for r in results[f'__observed_{target}']]
+                    else:
+                        print("Warning: no true data points to plot!")
+                        real_target = None
                     pred_target = [p for p in results[f'{target}']]
                     if isinstance(pred_target[0], list):
                         pred_target = [p[0] for p in pred_target]
@@ -84,7 +91,11 @@ def forecast(model, data, params, subset=None, rolling=1, show_anomaly=False):
                 results = pd.DataFrame.from_dict(preds._data)
                 time_target = list(results[order].values.flatten())
                 pred_target = [None for _ in range(idx)] + [p for p in preds._data[f'{target}'][idx]]
-                real_target = [float(r) for r in results[f'__observed_{target}']][:idx + forecasting_window]
+                if any(results[f'__observed_{target}']):
+                    real_target = [float(r) for r in results[f'__observed_{target}']][:idx + forecasting_window]
+                else:
+                    print("Warning: no true data points to plot!")
+                    real_target = None
                 delta = time_target[-1] - time_target[-2]
                 time_target = time_target.append([time_target[-1] + delta * i for i in range(forecasting_window)])
                 conf_lower = None
