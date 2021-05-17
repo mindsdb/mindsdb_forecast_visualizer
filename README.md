@@ -2,6 +2,8 @@
 
 The purpose of this tool is to aid in obtaining quick visualizations for time series forecasts provided by a MindsDB predictor.
 
+![](./docs/plot.png)
+
 At the moment, the tool supports predictors trained from (or loaded to) `mindsdb_native`, but MindsDB Python SDK support is coming soon.
 
 ## Documentation
