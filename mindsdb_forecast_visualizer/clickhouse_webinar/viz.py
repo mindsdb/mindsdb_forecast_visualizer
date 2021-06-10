@@ -8,9 +8,7 @@ import pandas as pd
 import mindsdb_native
 from mindsdb_forecast_visualizer.core.dispatch import visualize
 
-# remove this later
-# good!: 120, 130, 140,
-# Demo:
+# Demo slices:
 #   [:170], subset None; explain how weekly dynamics and weekend dynamics are learnt for
 #   [5380:5474], subset None, same for DDS, even though series can present changing behavior
 #   [8000:8100], subset None, same for VTS
@@ -22,15 +20,17 @@ idx_pairs = [[0, 170], [5380, 5474], [8000, 8100], [11645, 11744], [13400, 13485
 if __name__ == '__main__':
     # Mode: can be SDK or Native
     mode = 'Native'
-    base_path = '/Users/Pato/Work/MindsDB/temp/demos/clickhouse_webinar/'
+    base_path = './'
+    pred_path = base_path
 
     # Specify a DataFrame that has your queries (make sure there are enough rows for each group!)
     all_data = pd.read_csv(base_path+'webinarTe.csv')
     query_df = all_data
 
-    pred_path = base_path + 'storage/predictors/'
     rolling = 1
-    subset = [{'vendor_id': 'VTS'}, {'vendor_id': 'CMT'}, {'vendor_id': '1'}, {'vendor_id': '2'}, {'vendor_id': 'DDS'},]  # None predicts for all groups
+
+    # None predicts for all groups
+    subset = [{'vendor_id': 'VTS'}, {'vendor_id': 'CMT'}, {'vendor_id': '1'}, {'vendor_id': '2'}, {'vendor_id': 'DDS'},]
 
     # Specify predictor name here, as specified when training it for the first time
     # 1) t+1 predictions
