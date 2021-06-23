@@ -16,7 +16,7 @@ if __name__ == '__main__':
     predictor_name = 'arrival_forecast_example'
 
     # Specify a DataFrame that has your queries (make sure there are enough rows for each group!)
-    query_df = pd.read_csv('arrivals_test.csv')
+    query_df = pd.read_csv('example/arrivals_test.csv')
 
     # Examples: [{'col1': 'val1'}, {'col1': 'val1', 'col2': 'val2', ...}]
     subset = None  # None predicts for all groups
