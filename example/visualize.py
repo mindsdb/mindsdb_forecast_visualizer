@@ -1,11 +1,11 @@
 """
-This example file shows how to use the visualizer with a trained predictor.
+This example shows how to use the visualizer with a trained predictor.
 To train the predictor, refer to:
-    - train_native.py: for training a predictor using MindsDB Native
+    - train.py: for training a predictor using Lightwood
     - TODO: train_sdk.py: for training a predictor using the MindsDB Python SDK
 """
-from mindsdb_forecast_visualizer.core.dispatch import visualize
 import pandas as pd
+from mindsdb_forecast_visualizer.core.dispatch import visualize
 
 
 if __name__ == '__main__':
