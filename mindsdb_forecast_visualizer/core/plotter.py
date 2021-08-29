@@ -33,13 +33,14 @@ def plot(time, real, predicted, confa, confb, labels, anomalies=None):
                              showlegend=True,
                              line=dict(color=COLORS.BLUEBERRY, width=3)))
 
-    if anomalies:
+    if anomalies and time:
         for (t_idx, t), anomaly in zip(enumerate(time), anomalies):
             if anomaly:
                 t1 = time[t_idx - 1] if t_idx > 0 else t
                 t3 = time[t_idx + 1] if t_idx < len(time) - 1 else t
                 fig.add_vrect(x0=t1, x1=t3, line_width=0, opacity=0.25, fillcolor=COLORS.WHEAT)  # "orange"
 
+    # @TODO: get dticks from inferred time deltas
     fig.update_layout(
         xaxis=dict(
             showline=True,
@@ -50,6 +51,7 @@ def plot(time, real, predicted, confa, confb, labels, anomalies=None):
             linecolor=COLORS.LINECOLOR,
             linewidth=2,
             ticks='outside',
+            # dtick= 1,
             tickfont=dict(
                 family='Source Sans Pro',
                 size=14,
@@ -68,7 +70,7 @@ def plot(time, real, predicted, confa, confb, labels, anomalies=None):
             tickfont=dict(
                 family='Source Sans Pro',
                 size=14,
-                color=COLORS.LINECOLOR,
+                color=COLORS.TICKCOLOR,
             ),
 
         ),
