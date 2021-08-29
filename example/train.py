@@ -12,7 +12,7 @@ if __name__ == '__main__':
                                         'timeseries_settings': {
                                             'use_previous_target': True,
                                             'group_by': ['Country'],
-                                            'nr_predictions': 1,          # forecast horizon length
+                                            'nr_predictions': 5,          # forecast horizon length
                                             'order_by': ['T'],
                                             'window': 10                  # qty of previous data to use when predicting
                                         }})
