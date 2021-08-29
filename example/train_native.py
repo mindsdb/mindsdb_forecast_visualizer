@@ -4,7 +4,6 @@ import mindsdb_native
 
 if __name__ == '__main__':
     p_name = 'arrival_forecast_example'
-
     train_df = pd.read_csv('./arrivals_train.csv')
 
     predictor = mindsdb_native.Predictor(name=p_name)

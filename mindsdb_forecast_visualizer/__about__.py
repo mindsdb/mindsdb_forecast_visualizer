@@ -5,6 +5,5 @@ __description__ = "Companion package to visualizer forecasts made with MindsDB p
 __email__ = "jorge@mindsdb.com"
 __author__ = 'MindsDB Inc'
 __github__ = 'https://github.com/mindsdb/mindsdb_forecast_visualizer'
-# __pypi__ = 'https://pypi.org/project/mindsdb'
 __license__ = 'GPL-3.0'
 __copyright__ = 'Copyright 2021- mindsdb'

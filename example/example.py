@@ -4,9 +4,8 @@ To train the predictor, refer to:
     - train_native.py: for training a predictor using MindsDB Native
     - TODO: train_sdk.py: for training a predictor using the MindsDB Python SDK
 """
-import pandas as pd
-import mindsdb_native
 from mindsdb_forecast_visualizer.core.dispatch import visualize
+import pandas as pd
 
 
 if __name__ == '__main__':
@@ -17,16 +16,15 @@ if __name__ == '__main__':
     predictor_name = 'arrival_forecast_example'
 
     # Specify a DataFrame that has your queries (make sure there are enough rows for each group!)
-    query_df = pd.read_csv('./arrivals_test.csv')
+    query_df = pd.read_csv('example/arrivals_test.csv')
 
-    # None predicts for all groups
     # Examples: [{'col1': 'val1'}, {'col1': 'val1', 'col2': 'val2', ...}]
-    subset = None
+    subset = None  # None predicts for all groups
 
     # Set rolling amount of predictions (1 if predictor was trained for t+N with N>1)
     rolling = 1
 
-    # Set other predictor parameters (NOTE: this will be automatically retrieved soon)
+    # Set other predictor parameters
     params = {
         'order': ['T'],
         'target': 'Traffic',
@@ -36,14 +34,8 @@ if __name__ == '__main__':
         'pred_name': predictor_name
     }
 
-    pred_path = None  # set if predictor was saved in a non-default location (or e.g. a previous native version)
-    if pred_path is None and mode == 'Native':
-        pred_path = '/mindsdb_native/mindsdb_native/mindsdb_storage/' + \
-                    mindsdb_native.__version__.replace('.', '_')
-    elif pred_path is None and mode == 'SDK':
-        pred_path = '/storage/predictors'
+    pred_path = None  # set this if the predictor was saved in a non-default location
 
-    # Plot!
     visualize(predictor_name,
               query_df,
               params=params,
