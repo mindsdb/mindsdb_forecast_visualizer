@@ -4,40 +4,67 @@ import plotly.graph_objects as go
 from mindsdb_forecast_visualizer.config import COLORS
 
 
-def plot(time, real, predicted, confa, confb, labels, fh_idx, anomalies=None, renderer="browser"):
-    """ We use Plotly to generate forecasting visualizations
-    """
-    pio.renderers.default = renderer  # comment to use default plotter instead of persistent web browser tabs
+def plot(time,
+         real,
+         predicted,
+         confa,
+         confb,
+         labels,
+         fh_idx,
+         anomalies=None,
+         separate=False,
+         renderer="browser"):
 
+    pio.renderers.default = renderer  # comment to use default plotter instead of persistent web browser tabs
     fig = go.Figure()
 
-    if confa is not None and confb is not None:
-        fig.add_trace(go.Scatter(x=time, y=confa,
-                                 name='Confidence',
-                                 fill=None,
-                                 mode='lines',
-                                 line=dict(color=COLORS.SLATEGREY, width=0)))
+    cutoffs = [
+        (0, fh_idx),                    # plot real & predicted up until latest observed data point
+        (fh_idx, None)                  # plot predicted forecasts starting latest observed data point
+    ] if separate else [(0, None)]
 
-        fig.add_trace(go.Scatter(x=time, y=confb,
-                                 name='Confidence',
-                                 fill='tonexty',
-                                 mode='lines',
-                                 line=dict(color=COLORS.SLATEGREY, width=0)))
+    preambles = [
+        [],                             # offset list for first cutoff (None, starts from beginning)
+        [None for _ in range(fh_idx)]   # offset list for second cutoff
+    ] if separate else [[]]
 
-    fig.add_trace(go.Scatter(x=time, y=real[:fh_idx],
-                             name='Real',
-                             line=dict(color=COLORS.SHAMROCK, width=3)))
+    for preamble, (start_idx, end_idx) in zip(preambles, cutoffs):
 
-    fig.add_trace(go.Scatter(x=time, y=[None for _ in range(fh_idx)] + real[fh_idx:],
-                             name='Real',
-                             line=dict(color=COLORS.SHAMROCK, width=3)))
+        if confa is not None and confb is not None:
+            fig.add_trace(go.Scatter(x=time,
+                                     y=preamble + confa[start_idx:end_idx],
+                                     name='Confidence',
+                                     fill=None,
+                                     mode='lines',
+                                     line=dict(
+                                         color=COLORS.SLATEGREY,
+                                         width=0)))
 
-    fig.add_trace(go.Scatter(x=time, y=predicted,
-                             name='Predicted',
-                             showlegend=True,
-                             line=dict(color=COLORS.BLUEBERRY, width=3)))
+            fig.add_trace(go.Scatter(x=time,
+                                     y=preamble + confb[start_idx:end_idx],
+                                     name='Confidence',
+                                     fill='tonexty',
+                                     mode='lines',
+                                     line=dict(
+                                         color=COLORS.SLATEGREY,
+                                         width=0)))
 
-    fig.add_vline(x=fh_idx-1, line_width=2, line_dash="dash", line_color="black")
+        fig.add_trace(go.Scatter(x=time,
+                                 y=preamble + real[start_idx:end_idx],
+                                 name='Real',
+                                 line=dict(
+                                     color=COLORS.SHAMROCK,
+                                     width=3)))
+
+        fig.add_trace(go.Scatter(x=time,
+                                 y=preamble + predicted[start_idx:end_idx],
+                                 name='Predicted',
+                                 showlegend=True,
+                                 line=dict(
+                                     color=COLORS.BLUEBERRY,
+                                     width=3)))
+
+    fig.add_vline(x=fh_idx-1, line_width=2, line_dash="dash", line_color="black")  # mark start of forecasting window
 
     if anomalies and time:
         for (t_idx, t), anomaly in zip(enumerate(time), anomalies):
