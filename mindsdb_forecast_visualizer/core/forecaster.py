@@ -21,7 +21,9 @@ def forecast(model,
     """
     # instantiate series according to groups
     group_values = OrderedDict()
-    for g in model.problem_definition.timeseries_settings.group_by:
+    tss = model.problem_definition.timeseries_settings
+    gby = tss.group_by if tss.group_by is not None else []
+    for g in gby:
         group_values[g] = list(data[g].unique())
     group_keys = group_values.keys()
     groups = list(product(*[set(x) for x in group_values.values()]))
@@ -29,12 +31,12 @@ def forecast(model,
     # prediction advanced args TODO pass in settings
     # advanced_args = {'anomaly_error_rate': 0.01, 'anomaly_cooldown': 1, 'anomaly_detection': show_anomaly}
     target = model.problem_definition.target
-    order = model.problem_definition.timeseries_settings.order_by
+    order = tss.order_by
 
     # extract each series, predict for it, then plot
     for g in groups:
         try:
-            filtered_data = pd.DataFrame()
+            filtered_data = pd.DataFrame() if g != () else data
             group_dict = {k: v for k, v in zip(group_keys, g)}
 
             if subset is None or group_dict in subset:
@@ -49,7 +51,7 @@ def forecast(model,
                 observed = preds["truth"]
 
                 # rolling prediction
-                if rolling != 1 or model.problem_definition.timeseries_settings.nr_predictions == 1:
+                if rolling != 1 or tss.nr_predictions == 1:
                     all_preds = [preds]
                     pred = preds['prediction']
 
@@ -86,7 +88,7 @@ def forecast(model,
 
                 # trained T+N
                 else:
-                    forecasting_window = model.problem_definition.timeseries_settings.nr_predictions
+                    forecasting_window = tss.nr_predictions
                     idx = len(observed) - forecasting_window
 
                     results = preds
@@ -97,7 +99,8 @@ def forecast(model,
                     else:
                         print("Warning: no true data points to plot!")
                         real_target = None
-                    delta = model.ts_analysis['deltas'][frozenset(g)][order[0]]
+                    group_key = frozenset(g) if g != () else '__default'
+                    delta = model.ts_analysis['deltas'][group_key][order[0]]
                     time_target = time_target.append([time_target[-1] + delta * i for i in range(forecasting_window)])
                     conf_lower = [None for _ in range(idx)] + [p for p in preds['lower'][idx]]
                     conf_upper = [None for _ in range(idx)] + [p for p in preds['upper'][idx]]
