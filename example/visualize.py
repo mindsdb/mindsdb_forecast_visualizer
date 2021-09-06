@@ -31,5 +31,4 @@ if __name__ == '__main__':
     visualize(predictor,
               query_df,
               subset=subset,
-              mode=mode,
-              rolling=rolling)
+              mode=mode)

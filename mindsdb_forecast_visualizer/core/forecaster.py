@@ -9,16 +9,10 @@ from mindsdb_forecast_visualizer.core.plotter import plot
 
 def forecast(model,
              data: pd.DataFrame,
-             subset: Union[list, None] = None,
-             rolling: int = 1,
-             show_anomaly: bool = False):
-    """
-    TODO: assert query data has > window data points per each group!
-    TODO reintroduce limit?: used to arbitrarily cutoff df
-    rolling: amount of rolling predictions to do. None triggers T+N based on nr_predictions specified when training.
-    (note: rolling mode generally has worse forecast quality)
-    subset: groups that you want to visualize
-    """
+             subset: Union[list, None] = None,  # groups to visualize
+             show_anomaly: bool = False
+             ):
+
     # instantiate series according to groups
     group_values = OrderedDict()
     tss = model.problem_definition.timeseries_settings
@@ -47,74 +41,76 @@ def forecast(model,
             filtered_data = filtered_data.drop_duplicates(subset=order)
 
             if filtered_data.shape[0] > 0:
+                assert filtered_data.shape[0] > tss.window
                 preds = model.predict(filtered_data)  # TODO: advanced args?
                 observed = preds["truth"]
 
-                # rolling prediction
-                if rolling != 1 or tss.nr_predictions == 1:
-                    all_preds = [preds]
-                    pred = preds['prediction']
+                forecasting_window = tss.nr_predictions
+                idx = len(observed) - forecasting_window
 
-                    # impute predictions as new data, go through inferring procedure again
-                    for t, target_t in enumerate(range(1, rolling)):
-                        if isinstance(pred[0], list):
-                            pred = [p[0] for p in pred]
-                        filtered_data[target] = pred
-                        new_preds = model.predict(filtered_data)   # TODO advanced_args?
-                        pred = new_preds['prediction']
-                        new_preds['truth'] = observed
-                        all_preds.append(new_preds)
+                group_key = frozenset(g) if g != () else '__default'
+                delta = model.ts_analysis['deltas'][group_key][order[0]]
+                time_target = list(preds[f'order_{order[0]}'].values.flatten())
+                time_target = time_target.append([time_target[-1] + delta * i for i in range(forecasting_window)])
 
-                    for i, p in enumerate(all_preds):
-                        titles = {'title': f'MindsDB forecast for group {g} (T+{i + 1})',
-                                  'xtitle': 'Date (Unix timestamp)',
-                                  'ytitle': target,
-                                  'legend_title': 'Legend'
-                                  }
-                        results = pd.DataFrame.from_dict(p._data)
-                        time_target = list(filtered_data[order].values.flatten())
-                        if any(results['truth']):
-                            real_target = [float(r) for r in results['truth']]
-                        else:
-                            print("Warning: no true data points to plot!")
-                            real_target = None
-                        pred_target = [p for p in results['prediction']]
-                        if isinstance(pred_target[0], list):
-                            pred_target = [p[0] for p in pred_target]
-                        anomalies = results['anomaly'] if show_anomaly else None
-                        fig = plot(time_target, real_target, pred_target, results['lower'], results['upper'],
-                                   fh_idx=len(pred_target), labels=titles, anomalies=anomalies)
-                        fig.show()
+                # add one-step-ahead predictions for all observed data points
+                pred_target = []
+                conf_lower = []
+                conf_upper = []
 
-                # trained T+N
+                for i in range(idx):
+                    pred_target += [preds['prediction'][i][0]]
+                    conf_lower += [preds['lower'][i][0]]
+                    conf_upper += [preds['upper'][i][0]]
+
+                # add forecast based on latest observed data point
+                if any(preds['truth']):
+                    real_target = [float(r) for r in preds['truth']][:idx + forecasting_window]
                 else:
-                    forecasting_window = tss.nr_predictions
-                    idx = len(observed) - forecasting_window
+                    print("Warning: no true data points to plot!")
+                    real_target = None
 
-                    results = preds
-                    time_target = list(results[f'order_{order[0]}'].values.flatten())
-                    pred_target = [None for _ in range(idx)] + [p for p in preds['prediction'][idx]]
-                    if any(results['truth']):
-                        real_target = [float(r) for r in results['truth']][:idx + forecasting_window]
-                    else:
-                        print("Warning: no true data points to plot!")
-                        real_target = None
-                    group_key = frozenset(g) if g != () else '__default'
-                    delta = model.ts_analysis['deltas'][group_key][order[0]]
-                    time_target = time_target.append([time_target[-1] + delta * i for i in range(forecasting_window)])
-                    conf_lower = [None for _ in range(idx)] + [p for p in preds['lower'][idx]]
-                    conf_upper = [None for _ in range(idx)] + [p for p in preds['upper'][idx]]
+                fcst = {
+                    'prediction': preds['prediction'][idx],
+                    'lower': preds['lower'][idx],
+                    'upper': preds['upper'][idx]
+                }
 
-                    titles = {'title': f'MindsDB forecast for group {g} (T+{forecasting_window})',
-                              'xtitle': 'Date (Unix timestamp)',
-                              'ytitle': target,
-                              'legend_title': 'Legend'
-                              }
+                # wrap if needed
+                for k, v in fcst.items():
+                    if not isinstance(v, list):
+                        fcst[k] = [v]
 
-                    anomalies = [c for c in results['anomaly']] if show_anomaly else None
-                    fig = plot(time_target, real_target, pred_target, conf_lower, conf_upper,
-                               fh_idx=idx, labels=titles, anomalies=anomalies)
-                    fig.show()
+                if forecasting_window == 1:
+                    separate = False
+                    for k, v in fcst.items():
+                        fcst[k] = [v[0]]
+                else:
+                    separate = True
+
+                pred_target += [p for p in fcst['prediction']]
+                conf_lower += [p for p in fcst['lower']]
+                conf_upper += [p for p in fcst['upper']]
+
+                titles = {'title': f'MindsDB forecast for group {g} (T+{forecasting_window})',
+                          'xtitle': 'Date (Unix timestamp)',
+                          'ytitle': target,
+                          'legend_title': 'Legend'
+                          }
+
+                anomalies = [c for c in preds['anomaly']] if show_anomaly else None
+
+                fig = plot(time_target,
+                           real_target,
+                           pred_target,
+                           conf_lower,
+                           conf_upper,
+                           fh_idx=idx,
+                           labels=titles,
+                           anomalies=anomalies,
+                           separate=separate)
+                fig.show()
+
         except Exception as e:
             print(e)
             print(f"error in group {g}")
