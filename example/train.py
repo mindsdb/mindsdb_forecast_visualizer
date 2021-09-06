@@ -1,5 +1,5 @@
 import pandas as pd
-from lightwood.api.high_level import ProblemDefinition, predictor_from_code, code_from_problem
+from lightwood.api.high_level import ProblemDefinition, predictor_from_code, json_ai_from_problem, code_from_json_ai
 
 
 if __name__ == '__main__':
@@ -19,7 +19,8 @@ if __name__ == '__main__':
 
     # name and generate predictor code
     p_name = 'arrival_forecast_example'
-    predictor_class_code = code_from_problem(train_df, problem_definition=pdef)
+    json_ai = json_ai_from_problem(train_df, problem_definition=pdef)
+    predictor_class_code = code_from_json_ai(json_ai)
 
     # instantiate and train predictor
     predictor = predictor_from_code(predictor_class_code)
