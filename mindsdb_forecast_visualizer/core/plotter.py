@@ -1,13 +1,13 @@
-import plotly.graph_objects as go
 import plotly.io as pio
+import plotly.graph_objects as go
 
 from mindsdb_forecast_visualizer.config import COLORS
 
 
-def plot(time, real, predicted, confa, confb, labels, anomalies=None):
+def plot(time, real, predicted, confa, confb, labels, fh_idx, anomalies=None, renderer="browser"):
     """ We use Plotly to generate forecasting visualizations
     """
-    pio.renderers.default = "browser"  # comment to use default plotter instead of persistent web browser tabs
+    pio.renderers.default = renderer  # comment to use default plotter instead of persistent web browser tabs
 
     fig = go.Figure()
 
@@ -24,7 +24,11 @@ def plot(time, real, predicted, confa, confb, labels, anomalies=None):
                                  mode='lines',
                                  line=dict(color=COLORS.SLATEGREY, width=0)))
 
-    fig.add_trace(go.Scatter(x=time, y=real,
+    fig.add_trace(go.Scatter(x=time, y=real[:fh_idx],
+                             name='Real',
+                             line=dict(color=COLORS.SHAMROCK, width=3)))
+
+    fig.add_trace(go.Scatter(x=time, y=[None for _ in range(fh_idx)] + real[fh_idx:],
                              name='Real',
                              line=dict(color=COLORS.SHAMROCK, width=3)))
 
@@ -32,6 +36,8 @@ def plot(time, real, predicted, confa, confb, labels, anomalies=None):
                              name='Predicted',
                              showlegend=True,
                              line=dict(color=COLORS.BLUEBERRY, width=3)))
+
+    fig.add_vline(x=fh_idx-1, line_width=2, line_dash="dash", line_color="black")
 
     if anomalies and time:
         for (t_idx, t), anomaly in zip(enumerate(time), anomalies):

@@ -80,8 +80,8 @@ def forecast(model,
                         if isinstance(pred_target[0], list):
                             pred_target = [p[0] for p in pred_target]
                         anomalies = results['anomaly'] if show_anomaly else None
-                        fig = plot(time_target, real_target, pred_target, results['lower'], results['upper'], labels=titles,
-                                   anomalies=anomalies)
+                        fig = plot(time_target, real_target, pred_target, results['lower'], results['upper'],
+                                   fh_idx=len(pred_target), labels=titles, anomalies=anomalies)
                         fig.show()
 
                 # trained T+N
@@ -109,8 +109,8 @@ def forecast(model,
                               }
 
                     anomalies = [c for c in results['anomaly']] if show_anomaly else None
-                    fig = plot(time_target, real_target, pred_target, conf_lower, conf_upper, labels=titles,
-                               anomalies=anomalies)
+                    fig = plot(time_target, real_target, pred_target, conf_lower, conf_upper,
+                               fh_idx=idx, labels=titles, anomalies=anomalies)
                     fig.show()
         except Exception as e:
             print(e)
