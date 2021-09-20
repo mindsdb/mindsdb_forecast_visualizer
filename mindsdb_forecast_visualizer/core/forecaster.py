@@ -55,8 +55,8 @@ def forecast(model,
 
                 group_key = frozenset(g) if g != () else '__default'
                 delta = model.ts_analysis['deltas'][group_key][order[0]]
-                time_target = list(preds[f'order_{order[0]}'].values.flatten())
-                time_target = time_target.append([time_target[-1] + delta * i for i in range(forecasting_window)])
+                time_target = [p[0] for p in preds[f'order_{order[0]}']]
+                time_target.append([time_target[-1] + delta * i for i in range(1, forecasting_window+1)])
 
                 # add one-step-ahead predictions for all observed data points
                 pred_target = []
