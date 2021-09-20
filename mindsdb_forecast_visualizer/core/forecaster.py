@@ -43,6 +43,11 @@ def forecast(model,
             if filtered_data.shape[0] > 0:
                 assert filtered_data.shape[0] > tss.window
                 preds = model.predict(filtered_data)  # TODO: advanced args?
+
+                if not isinstance(preds['prediction'].iloc[0], list):
+                    for k in ['prediction', 'lower', 'upper'] + [f'order_{i}' for i in tss.order_by]:
+                        preds[k] = preds[k].apply(lambda x: [x])  # convert one-step-ahead predictions to unitary lists
+
                 observed = preds["truth"]
 
                 forecasting_window = tss.nr_predictions
@@ -57,10 +62,6 @@ def forecast(model,
                 pred_target = []
                 conf_lower = []
                 conf_upper = []
-
-                if not isinstance(preds['prediction'].iloc[0], list):
-                    for k in ('prediction', 'lower', 'upper'):
-                        preds[k] = preds[k].apply(lambda x: [x])  # convert one-step-ahead predictions to unitary lists
 
                 for i in range(idx):
                     pred_target += [preds['prediction'][i][0]]
