@@ -58,6 +58,10 @@ def forecast(model,
                 conf_lower = []
                 conf_upper = []
 
+                if not isinstance(preds['prediction'].iloc[0], list):
+                    for k in ('prediction', 'lower', 'upper'):
+                        preds[k] = preds[k].apply(lambda x: [x])  # convert one-step-ahead predictions to unitary lists
+
                 for i in range(idx):
                     pred_target += [preds['prediction'][i][0]]
                     conf_lower += [preds['lower'][i][0]]
