@@ -18,7 +18,8 @@ about = {}
 with open("mindsdb_forecast_visualizer/__about__.py") as fp:
     exec(fp.read(), about)
 
-long_description = open('README.md', encoding='utf-8').read()
+with open("README.md", "r") as fh:
+    long_description = fh.read()
 
 with open('requirements.txt', 'r') as req_file:
     requirements = [req.strip() for req in req_file.read().splitlines()]
@@ -40,13 +41,14 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     packages=setuptools.find_packages(),
+    package_data={'project': ['requirements.txt']},
     install_requires=requirements,
-    tests_require = test_requirements,
+    tests_require=test_requirements,
     dependency_links=dependency_links,
     classifiers=(
         "Programming Language :: Python :: 3",
-        "License :: OSI Approved :: MIT License",
+        "License :: OSI Approved :: GPL-3.0 License",
         "Operating System :: OS Independent",
     ),
-    python_requires=">=3.6"
+    python_requires=">=3.7"
 )
