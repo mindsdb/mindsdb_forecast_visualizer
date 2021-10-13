@@ -40,7 +40,6 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     package_data={'project': ['requirements.txt']},
     install_requires=requirements,
-    tests_require=test_requirements,
     dependency_links=dependency_links,
     classifiers=(
         "Programming Language :: Python :: 3",
