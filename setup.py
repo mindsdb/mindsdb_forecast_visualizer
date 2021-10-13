@@ -12,7 +12,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 install_requires = [
-    "plotly",
+    "plotly>=4.12",
     "lightwood>=1.0.0",
     "mindsdb>=2.51.1"
     ]
