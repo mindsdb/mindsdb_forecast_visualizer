@@ -7,11 +7,12 @@ import pandas as pd
 from mindsdb_forecast_visualizer.core.plotter import plot
 
 
-def forecast(model,
-             data: pd.DataFrame,
-             subset: Union[list, None] = None,  # groups to visualize
-             show_anomaly: bool = False
-             ):
+def visualize(model,
+              data: pd.DataFrame,
+              subset: Union[list, None] = None,  # groups to visualize
+              show_anomaly: bool = False,
+              renderer='browser'
+              ):
 
     # instantiate series according to groups
     group_values = OrderedDict()
@@ -111,6 +112,7 @@ def forecast(model,
                            conf_lower,
                            conf_upper,
                            fh_idx=idx,
+                           renderer=renderer,
                            labels=titles,
                            anomalies=anomalies,
                            separate=separate)

@@ -1,1 +1,1 @@
-from .config import COLORS
+from .config import COLORS, RENDERER

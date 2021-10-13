@@ -1,7 +1,7 @@
 import plotly.io as pio
 import plotly.graph_objects as go
 
-from mindsdb_forecast_visualizer.config import COLORS
+from mindsdb_forecast_visualizer.config import COLORS, RENDERER
 
 
 def plot(time,
@@ -11,11 +11,11 @@ def plot(time,
          confb,
          labels,
          fh_idx,
+         renderer='browser',
          anomalies=None,
-         separate=False,
-         renderer="browser"):
+         separate=False):
 
-    pio.renderers.default = renderer  # comment to use default plotter instead of persistent web browser tabs
+    pio.renderers.default = renderer
     fig = go.Figure()
 
     cutoffs = [

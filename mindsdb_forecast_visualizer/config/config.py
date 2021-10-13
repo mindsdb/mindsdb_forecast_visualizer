@@ -11,3 +11,6 @@ class COLORS:
     GRIDCOLOR = 'rgba(232, 232, 232, 1)'
     FONTCOLOR = 'rgba(0, 176, 109, 1)'
     TICKCOLOR = 'rgb(44, 38, 63)'
+
+
+RENDERER = 'browser'  # for all options, see plotly.com/python/renderers/
