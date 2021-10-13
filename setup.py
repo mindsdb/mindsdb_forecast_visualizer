@@ -1,6 +1,5 @@
 import setuptools
 import sys
-import os
 
 
 def remove_requirements(requirements, name, replace=None):
@@ -11,6 +10,7 @@ def remove_requirements(requirements, name, replace=None):
         elif replace is not None:
             new_requirements.append(replace)
     return new_requirements
+
 
 sys_platform = sys.platform
 
@@ -23,9 +23,6 @@ with open("README.md", "r") as fh:
 
 with open('requirements.txt', 'r') as req_file:
     requirements = [req.strip() for req in req_file.read().splitlines()]
-
-with open('requirements_test.txt', 'r') as req_file:
-    test_requirements = [req.strip() for req in req_file.read().splitlines()]
 
 dependency_links = []
 
