@@ -2,16 +2,6 @@ import setuptools
 import sys
 
 
-def remove_requirements(requirements, name, replace=None):
-    new_requirements = []
-    for requirement in requirements:
-        if requirement.split(' ')[0] != name:
-            new_requirements.append(requirement)
-        elif replace is not None:
-            new_requirements.append(replace)
-    return new_requirements
-
-
 sys_platform = sys.platform
 
 about = {}
@@ -21,10 +11,11 @@ with open("mindsdb_forecast_visualizer/__about__.py") as fp:
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
-with open('requirements.txt', 'r') as req_file:
-    requirements = [req.strip() for req in req_file.read().splitlines()]
-
-dependency_links = []
+install_requires = [
+    "plotly",
+    "lightwood>=1.0.0",
+    "mindsdb>=2.51.1"
+    ]
 
 setuptools.setup(
     name=about['__title__'],
@@ -39,8 +30,8 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     packages=setuptools.find_packages(),
     package_data={'project': ['requirements.txt']},
-    install_requires=requirements,
-    dependency_links=dependency_links,
+    install_requires=install_requires,
+    dependency_links=[],
     classifiers=(
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
