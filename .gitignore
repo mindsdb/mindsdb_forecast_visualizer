@@ -5,7 +5,6 @@ __pycache__
 *.dill
 test_data.csv
 train_data.csv
-*.ipy*
 *.test.*
 .cache*
 storage/*
