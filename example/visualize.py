@@ -5,7 +5,7 @@ To visualize from a Jupyter notebook, refer to example/visualize.ipynb
 """
 import pandas as pd
 from lightwood.api.high_level import predictor_from_state
-from mindsdb_forecast_visualizer.core.forecaster import visualize
+from mindsdb_forecast_visualizer.core.dispatcher import visualize
 
 
 if __name__ == '__main__':
