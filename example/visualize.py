@@ -4,8 +4,9 @@ To train a Lightwood predictor, refer to example/train.py
 To visualize from a Jupyter notebook, refer to example/visualize.ipynb
 """
 import pandas as pd
+from lightwood.data.splitter import stratify
 from lightwood.api.high_level import predictor_from_state
-from mindsdb_forecast_visualizer.core.dispatcher import visualize
+from mindsdb_forecast_visualizer.core.dispatcher import forecast
 
 
 if __name__ == '__main__':
@@ -18,9 +19,10 @@ if __name__ == '__main__':
         predictor = predictor_from_state(f'./{predictor_name}.pkl', code)
 
     # Specify a DataFrame that has your queries (ensuring there are enough rows for each group!)
-    query_df = pd.read_csv('./arrivals_test.csv')
+    df = pd.read_csv('./arrivals.csv')
+    _, _, query_df = stratify(df, pct_train=0.8, pct_dev=0, pct_test=0.2, stratify_on=['Country'], seed=1, reshuffle=False)
 
     # Determine what series to plot
-    subset = [{'Country': 'UK'}, {'Country': 'US'}]  # None will plot all available series
+    subset = None  # [{'Country': 'UK'}, {'Country': 'US'}]  # None will plot all available series
 
-    visualize(predictor, query_df, subset=subset)
+    forecast(predictor, query_df, subset=subset)

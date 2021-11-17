@@ -1,17 +1,23 @@
 import pandas as pd
+
+from lightwood.data.splitter import stratify
 from lightwood.api.high_level import ProblemDefinition, predictor_from_code, json_ai_from_problem, code_from_json_ai
 
 
 if __name__ == '__main__':
     # Load data and define the task
-    train_df = pd.read_csv('./arrivals_train.csv')
+    df = pd.read_csv('./arrivals.csv')
+    gby = ['Country']
+    train_df, _, _ = stratify(df, pct_train=0.8, pct_dev=0, pct_test=0.2, stratify_on=gby, seed=1, reshuffle=False)
+
     pdef = ProblemDefinition.from_dict({'target': 'Traffic',              # column to forecast
                                         'time_aim': 120,                  # time budget to build a predictor
                                         'nfolds': 10,
                                         'anomaly_detection': True,
+                                        'fit_on_all': True,
                                         'timeseries_settings': {
                                             'use_previous_target': True,
-                                            'group_by': ['Country'],
+                                            'group_by': gby,
                                             'nr_predictions': 5,          # forecast horizon length
                                             'order_by': ['T'],
                                             'window': 10                  # qty of previous data to use when predicting
