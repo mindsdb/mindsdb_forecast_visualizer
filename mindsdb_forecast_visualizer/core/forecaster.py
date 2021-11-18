@@ -1,3 +1,4 @@
+import traceback
 from typing import Union
 from copy import deepcopy
 from itertools import product
@@ -5,6 +6,8 @@ from collections import OrderedDict
 
 import pandas as pd
 from mindsdb_forecast_visualizer.core.plotter import plot
+from lightwood.data.cleaner import _standardize_datetime
+from lightwood.mixer import Neural, Unit, LightGBM, LightGBMArray, SkTime, Regression, QClassic
 
 
 def forecast(model,
@@ -43,43 +46,55 @@ def forecast(model,
 
             if filtered_data.shape[0] > 0:
                 assert filtered_data.shape[0] > tss.window
-                preds = model.predict(filtered_data)  # TODO: advanced args?
-
-                if not isinstance(preds['prediction'].iloc[0], list):
-                    for k in ['prediction', 'lower', 'upper'] + [f'order_{i}' for i in tss.order_by]:
-                        preds[k] = preds[k].apply(lambda x: [x])  # convert one-step-ahead predictions to unitary lists
-
-                observed = preds["truth"]
 
                 forecasting_window = tss.nr_predictions
-                idx = len(observed) - forecasting_window
-
-                group_key = frozenset(g) if g != () else '__default'
-                delta = model.ts_analysis['deltas'][group_key][order[0]]
-                time_target = [p[0] for p in preds[f'order_{order[0]}']]
-                time_target.append([time_target[-1] + delta * i for i in range(1, forecasting_window+1)])
-
-                # add one-step-ahead predictions for all observed data points
-                pred_target = []
-                conf_lower = []
-                conf_upper = []
-
-                for i in range(idx):
-                    pred_target += [preds['prediction'][i][0]]
-                    conf_lower += [preds['lower'][i][0]]
-                    conf_upper += [preds['upper'][i][0]]
-
-                # add forecast based on latest observed data point
-                if any(preds['truth']):
-                    real_target = [float(r) for r in preds['truth']][:idx + forecasting_window]
-                else:
+                idx = filtered_data.shape[0] - forecasting_window
+                if idx <= 0:
                     print("Warning: no true data points to plot!")
                     real_target = None
+                else:
+                    real_target = [float(r) for r in filtered_data[target]][:idx + forecasting_window]
+
+                # TODO: check if ensemble is != BestOf
+                if isinstance(model.ensemble.mixers[model.ensemble.best_index], SkTime):
+                    model_forecast = model.predict(filtered_data[idx:])  # TODO: PredictionArguments here, if needed
+                else:
+                    model_forecast = model.predict(filtered_data)  # TODO: PredictionArguments here, if needed
+                    model_forecast = model_forecast[idx:]
+
+                pred_target = []
+                time_target = []
+                conf_lower = []
+                conf_upper = []
+                anomalies = []
+
+                # add one-step-ahead predictions for all observed data points if mixer supports it
+                if not isinstance(model.ensemble.mixers[model.ensemble.best_index], SkTime):
+                    preds = model.predict(filtered_data[:idx])  # TODO: PredictionArguments here, if needed
+
+                    if not isinstance(preds['prediction'].iloc[0], list):
+                        for k in ['prediction', 'lower', 'upper'] + [f'order_{i}' for i in tss.order_by]:
+                            preds[k] = preds[k].apply(
+                                lambda x: [x])  # convert one-step-ahead predictions to unitary lists
+
+                    for i in range(idx):
+                        pred_target += [preds['prediction'][i][0]]
+                        conf_lower += [preds['lower'][i][0]]
+                        conf_upper += [preds['upper'][i][0]]
+                        time_target += [preds[f'order_{order[0]}'][i][0]]
+                        anomalies += [preds['anomaly'][i]]
+                else:
+                    for i in range(idx):
+                        pred_target += [None]
+                        conf_lower += [None]
+                        conf_upper += [None]
+                        anomalies += [None]
 
                 fcst = {
-                    'prediction': preds['prediction'][idx],
-                    'lower': preds['lower'][idx],
-                    'upper': preds['upper'][idx]
+                    # forecast corresponds to predicted arrays for the first query data point
+                    'prediction': model_forecast['prediction'][0],
+                    'lower': model_forecast['lower'][0],
+                    'upper': model_forecast['upper'][0]
                 }
 
                 # wrap if needed
@@ -98,13 +113,13 @@ def forecast(model,
                 conf_lower += [p for p in fcst['lower']]
                 conf_upper += [p for p in fcst['upper']]
 
+                time_target = [_standardize_datetime(p) for p in filtered_data[order[0]]]
+
                 titles = {'title': f'MindsDB forecast for group {g} (T+{forecasting_window})',
                           'xtitle': 'Date (Unix timestamp)',
                           'ytitle': target,
                           'legend_title': 'Legend'
                           }
-
-                anomalies = [c for c in preds['anomaly']] if show_anomaly else None
 
                 fig = plot(time_target,
                            real_target,
@@ -114,10 +129,10 @@ def forecast(model,
                            fh_idx=idx,
                            renderer=renderer,
                            labels=titles,
-                           anomalies=anomalies,
+                           anomalies=anomalies if show_anomaly else None,
                            separate=separate)
                 fig.show()
 
-        except Exception as e:
-            print(e)
-            print(f"error in group {g}")
+        except Exception:
+            print(f"Error in group {g}:")
+            print(traceback.format_exc())
