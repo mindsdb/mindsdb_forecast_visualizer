@@ -49,18 +49,20 @@ def forecast(model,
 
                 forecasting_window = tss.nr_predictions
                 idx = filtered_data.shape[0] - forecasting_window
+
                 if idx <= 0:
                     print("Warning: no true data points to plot!")
-                    real_target = None
-                else:
-                    real_target = [float(r) for r in filtered_data[target]][:idx + forecasting_window]
+                    real_target = []
 
                 # TODO: check if ensemble is != BestOf
                 if isinstance(model.ensemble.mixers[model.ensemble.best_index], SkTime):
                     model_forecast = model.predict(filtered_data[idx:])  # TODO: PredictionArguments here, if needed
+                    real_target = [None for _ in range(idx)] + \
+                                  [float(r) for r in filtered_data[target]][:forecasting_window]
                 else:
                     model_forecast = model.predict(filtered_data)  # TODO: PredictionArguments here, if needed
                     model_forecast = model_forecast[idx:]
+                    real_target = [float(r) for r in filtered_data[target]][:idx + forecasting_window]
 
                 pred_target = []
                 time_target = []
@@ -92,9 +94,9 @@ def forecast(model,
 
                 fcst = {
                     # forecast corresponds to predicted arrays for the first query data point
-                    'prediction': model_forecast['prediction'][0],
-                    'lower': model_forecast['lower'][0],
-                    'upper': model_forecast['upper'][0]
+                    'prediction': model_forecast['prediction'].iloc[0],
+                    'lower': model_forecast['lower'].iloc[0],
+                    'upper': model_forecast['upper'].iloc[0]
                 }
 
                 # wrap if needed
