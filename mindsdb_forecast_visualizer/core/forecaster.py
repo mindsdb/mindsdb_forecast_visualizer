@@ -45,24 +45,31 @@ def forecast(model,
             filtered_data = filtered_data.drop_duplicates(subset=order)
 
             if filtered_data.shape[0] > 0:
-                assert filtered_data.shape[0] > tss.window
+                print(f'Plotting for group {g}...')
+                if not tss.allow_incomplete_history:
+                    assert filtered_data.shape[0] > tss.window
 
                 forecasting_window = tss.nr_predictions
                 idx = filtered_data.shape[0] - forecasting_window
 
-                if idx <= 0:
-                    print("Warning: no true data points to plot!")
-                    real_target = []
+                # front padding
+                real_target = []
+                if idx > 0:
+                    real_target = [None for _ in range(idx)]
 
                 # TODO: check if ensemble is != BestOf
                 if isinstance(model.ensemble.mixers[model.ensemble.best_index], SkTime):
-                    model_forecast = model.predict(filtered_data[idx:])  # TODO: PredictionArguments here, if needed
-                    real_target = [None for _ in range(idx)] + \
-                                  [float(r) for r in filtered_data[target]][:forecasting_window]
+                    # TODO: PredictionArguments here, if needed
+                    model_forecast = model.predict(filtered_data)[:forecasting_window]
+                    real_target += [float(r) for r in filtered_data[target]][:forecasting_window]
                 else:
                     model_forecast = model.predict(filtered_data)  # TODO: PredictionArguments here, if needed
                     model_forecast = model_forecast[idx:]
                     real_target = [float(r) for r in filtered_data[target]][:idx + forecasting_window]
+
+                # rear padding
+                if idx < 0:
+                    real_target += [None for _ in range(-idx)]
 
                 pred_target = []
                 time_target = []
@@ -71,26 +78,28 @@ def forecast(model,
                 anomalies = []
 
                 # add one-step-ahead predictions for all observed data points if mixer supports it
-                if not isinstance(model.ensemble.mixers[model.ensemble.best_index], SkTime):
-                    preds = model.predict(filtered_data[:idx])  # TODO: PredictionArguments here, if needed
+                if idx > 0:
+                    if not isinstance(model.ensemble.mixers[model.ensemble.best_index], SkTime):
+                        preds = model.predict(filtered_data[:idx], args={'forecast_offset': -idx})  # TODO: PredictionArguments here, if needed
 
-                    if not isinstance(preds['prediction'].iloc[0], list):
-                        for k in ['prediction', 'lower', 'upper'] + [f'order_{i}' for i in tss.order_by]:
-                            preds[k] = preds[k].apply(
-                                lambda x: [x])  # convert one-step-ahead predictions to unitary lists
+                        if not isinstance(preds['prediction'].iloc[0], list):
+                            for k in ['prediction', 'lower', 'upper'] + [f'order_{i}' for i in tss.order_by]:
+                                preds[k] = preds[k].apply(
+                                    lambda x: [x])  # convert one-step-ahead predictions to unitary lists
 
-                    for i in range(idx):
-                        pred_target += [preds['prediction'][i][0]]
-                        conf_lower += [preds['lower'][i][0]]
-                        conf_upper += [preds['upper'][i][0]]
-                        time_target += [preds[f'order_{order[0]}'][i][0]]
-                        anomalies += [preds['anomaly'][i]]
-                else:
-                    for i in range(idx):
-                        pred_target += [None]
-                        conf_lower += [None]
-                        conf_upper += [None]
-                        anomalies += [None]
+                        for i in range(idx):
+                            pred_target += [preds['prediction'][i][0]]
+                            conf_lower += [preds['lower'][i][0]]
+                            conf_upper += [preds['upper'][i][0]]
+                            time_target += [preds[f'order_{order[0]}'][i][0]]
+                            if 'anomaly' in preds.columns:
+                                anomalies += [preds['anomaly'][i]]
+                    else:
+                        for i in range(idx):
+                            pred_target += [None]
+                            conf_lower += [None]
+                            conf_upper += [None]
+                            anomalies += [None]
 
                 fcst = {
                     # forecast corresponds to predicted arrays for the first query data point
@@ -116,6 +125,9 @@ def forecast(model,
                 conf_upper += [p for p in fcst['upper']]
 
                 time_target = [_standardize_datetime(p) for p in filtered_data[order[0]]]
+                delta = pd.Series(time_target).diff().value_counts().index[0]  # inferred
+                for i in range(len(pred_target) - len(time_target)):
+                    time_target += [time_target[-1] + delta]
 
                 titles = {'title': f'MindsDB forecast for group {g} (T+{forecasting_window})',
                           'xtitle': 'Date (Unix timestamp)',
@@ -128,7 +140,7 @@ def forecast(model,
                            pred_target,
                            conf_lower,
                            conf_upper,
-                           fh_idx=idx,
+                           fh_idx=max(0, idx),
                            renderer=renderer,
                            labels=titles,
                            anomalies=anomalies if show_anomaly else None,

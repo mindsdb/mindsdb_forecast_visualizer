@@ -64,7 +64,8 @@ def plot(time,
                                      color=COLORS.BLUEBERRY,
                                      width=3)))
 
-    fig.add_vline(x=time[fh_idx-1], line_width=2, line_dash="dash", line_color="black")  # mark start of forecasting window
+    # mark start of forecasting window
+    fig.add_vline(x=time[max(0, fh_idx-1)], line_width=2, line_dash="dash", line_color="black")
 
     if anomalies and time:
         for (t_idx, t), anomaly in zip(enumerate(time), anomalies):
