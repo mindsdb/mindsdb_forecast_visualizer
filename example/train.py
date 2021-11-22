@@ -18,6 +18,7 @@ if __name__ == '__main__':
                                         'timeseries_settings': {
                                             'use_previous_target': True,
                                             'group_by': gby,
+                                            'allow_incomplete_history': True,
                                             'nr_predictions': 5,          # forecast horizon length
                                             'order_by': ['T'],
                                             'window': 10                  # qty of previous data to use when predicting
@@ -26,6 +27,15 @@ if __name__ == '__main__':
     # name and generate predictor code
     p_name = 'arrival_forecast_example'
     json_ai = json_ai_from_problem(train_df, problem_definition=pdef)
+    json_ai.outputs['Traffic'].mixers = [
+        {
+            "module": "SkTime",
+            "args": {
+                "stop_after": "$problem_definition.seconds_per_mixer",
+                "n_ts_predictions": "$problem_definition.timeseries_settings.nr_predictions"
+            }
+        }
+    ]
     predictor_class_code = code_from_json_ai(json_ai)
 
     # instantiate and train predictor
