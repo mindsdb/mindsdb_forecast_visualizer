@@ -1,5 +1,5 @@
 import traceback
-from typing import Union
+from typing import Union, Optional
 from copy import deepcopy
 from itertools import product
 from collections import OrderedDict
@@ -14,7 +14,8 @@ def forecast(model,
              data: pd.DataFrame,
              subset: Union[list, None] = None,  # groups to visualize
              show_anomaly: bool = False,
-             renderer='browser'
+             renderer: str = 'browser',
+             backfill: pd.DataFrame = pd.DataFrame()
              ):
 
     # instantiate series according to groups
@@ -35,14 +36,18 @@ def forecast(model,
     for g in groups:
         try:
             filtered_data = pd.DataFrame() if g != () else data
+            filtered_backfill = pd.DataFrame() if g != () else data
             group_dict = {k: v for k, v in zip(group_keys, g)}
 
             if subset is None or group_dict in subset:
                 filtered_data = data
+                filtered_backfill = backfill
                 for k, v in group_dict.items():
                     filtered_data = deepcopy(filtered_data[filtered_data[k] == v])
+                    filtered_backfill = deepcopy(filtered_backfill[filtered_backfill[k] == v])
 
             filtered_data = filtered_data.drop_duplicates(subset=order)
+            filtered_backfill = filtered_backfill.drop_duplicates(subset=order)
 
             if filtered_data.shape[0] > 0:
                 print(f'Plotting for group {g}...')
@@ -54,6 +59,12 @@ def forecast(model,
 
                 # front padding
                 real_target = []
+                pred_target = []
+                time_target = []
+                conf_lower = []
+                conf_upper = []
+                anomalies = []
+
                 if idx > 0:
                     real_target = [None for _ in range(idx)]
 
@@ -61,6 +72,14 @@ def forecast(model,
                 if isinstance(model.ensemble.mixers[model.ensemble.best_index], SkTime):
                     # TODO: PredictionArguments here, if needed
                     model_forecast = model.predict(filtered_data)[:forecasting_window]
+                    if len(filtered_backfill) > 0:
+                        real_target = filtered_backfill[target].values.tolist()
+                        idx = len(filtered_backfill)
+                        for i in range(len(filtered_backfill)):
+                            pred_target += [None]
+                            conf_lower += [None]
+                            conf_upper += [None]
+                            anomalies += [None]
                     real_target += [float(r) for r in filtered_data[target]][:forecasting_window]
                 else:
                     model_forecast = model.predict(filtered_data)  # TODO: PredictionArguments here, if needed
@@ -70,12 +89,6 @@ def forecast(model,
                 # rear padding
                 if idx < 0:
                     real_target += [None for _ in range(-idx)]
-
-                pred_target = []
-                time_target = []
-                conf_lower = []
-                conf_upper = []
-                anomalies = []
 
                 # add one-step-ahead predictions for all observed data points if mixer supports it
                 if idx > 0:
@@ -94,12 +107,6 @@ def forecast(model,
                             time_target += [preds[f'order_{order[0]}'][i][0]]
                             if 'anomaly' in preds.columns:
                                 anomalies += [preds['anomaly'][i]]
-                    else:
-                        for i in range(idx):
-                            pred_target += [None]
-                            conf_lower += [None]
-                            conf_upper += [None]
-                            anomalies += [None]
 
                 fcst = {
                     # forecast corresponds to predicted arrays for the first query data point
