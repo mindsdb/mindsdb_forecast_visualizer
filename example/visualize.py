@@ -18,11 +18,16 @@ if __name__ == '__main__':
         code = f.read()
         predictor = predictor_from_state(f'./{predictor_name}.pkl', code)
 
-    # Specify a DataFrame that has your queries (ensuring there are enough rows for each group!)
+    # Load DataFrame with queries
     df = pd.read_csv('./arrivals.csv')
-    _, _, query_df = stratify(df, pct_train=0.8, pct_dev=0, pct_test=0.2, stratify_on=['Country'], seed=1, reshuffle=False)
+    _, _, query_df = stratify(df,
+                              pct_train=0.8,
+                              pct_dev=0,
+                              pct_test=0.2,
+                              stratify_on=['Country'],
+                              seed=1,
+                              reshuffle=False)
 
-    # Determine what series to plot
-    subset = None  # [{'Country': 'UK'}, {'Country': 'US'}]  # None will plot all available series
-
+    # Specify series and plot
+    subset = [{'Country': 'UK'}, {'Country': 'US'}]  # None will plot all available series
     forecast(predictor, query_df, subset=subset)
