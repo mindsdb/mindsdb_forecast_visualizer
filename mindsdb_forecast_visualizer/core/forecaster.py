@@ -24,6 +24,8 @@ def forecast(model,
     gby = tss.group_by if tss.group_by is not None else []
     for g in gby:
         group_values[g] = list(data[g].unique())
+        if g not in backfill.columns:
+            backfill[g] = []
     group_keys = group_values.keys()
     groups = list(product(*[set(x) for x in group_values.values()]))
 
