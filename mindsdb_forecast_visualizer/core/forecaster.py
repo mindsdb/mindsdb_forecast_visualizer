@@ -4,6 +4,7 @@ from copy import deepcopy
 from itertools import product
 from collections import OrderedDict
 
+import numpy as np
 import pandas as pd
 from mindsdb_forecast_visualizer.core.plotter import plot
 from lightwood.data.cleaner import _standardize_datetime
@@ -15,7 +16,8 @@ def forecast(model,
              subset: Union[list, None] = None,  # groups to visualize
              show_anomaly: bool = False,
              renderer: str = 'browser',
-             backfill: pd.DataFrame = pd.DataFrame()
+             backfill: pd.DataFrame = pd.DataFrame(),
+             predargs: dict = {}  # predictor arguments for inference
              ):
 
     # instantiate series according to groups
@@ -72,8 +74,7 @@ def forecast(model,
 
                 # TODO: check if ensemble is != BestOf
                 if isinstance(model.ensemble.mixers[model.ensemble.best_index], SkTime):
-                    # TODO: PredictionArguments here, if needed
-                    model_forecast = model.predict(filtered_data)[:forecasting_window]
+                    model_forecast = model.predict(filtered_data, args=predargs)[:forecasting_window]
                     if len(filtered_backfill) > 0:
                         real_target = filtered_backfill[target].values.tolist()
                         idx = len(filtered_backfill)
@@ -84,7 +85,7 @@ def forecast(model,
                             anomalies += [None]
                     real_target += [float(r) for r in filtered_data[target]][:forecasting_window]
                 else:
-                    model_forecast = model.predict(filtered_data)  # TODO: PredictionArguments here, if needed
+                    model_forecast = model.predict(filtered_data, args=predargs)
                     model_forecast = model_forecast[idx:]
                     real_target = [float(r) for r in filtered_data[target]][:idx + forecasting_window]
 
@@ -95,7 +96,8 @@ def forecast(model,
                 # add one-step-ahead predictions for all observed data points if mixer supports it
                 if idx > 0:
                     if not isinstance(model.ensemble.mixers[model.ensemble.best_index], SkTime):
-                        preds = model.predict(filtered_data[:idx], args={'forecast_offset': -idx})  # TODO: PredictionArguments here, if needed
+                        predargs['forecast_offset'] = -idx
+                        preds = model.predict(filtered_data[:idx], args=predargs)
 
                         if not isinstance(preds['prediction'].iloc[0], list):
                             for k in ['prediction', 'lower', 'upper'] + [f'order_{i}' for i in tss.order_by]:
@@ -138,7 +140,12 @@ def forecast(model,
                 for i in range(len(pred_target) - len(time_target)):
                     time_target += [time_target[-1] + delta]
 
-                titles = {'title': f'MindsDB forecast for group {g} (T+{forecasting_window})',
+                conf = round(np.array(model_forecast['confidence'][0][0]).mean(), 2)
+                if g != ():
+                    title = f'MindsDB T+{forecasting_window} forecast for group {g} (confidence: {conf})'
+                else:
+                    title = f'MindsDB T+{forecasting_window} forecast (confidence: {conf})'
+                titles = {'title': title,
                           'xtitle': 'Date (Unix timestamp)',
                           'ytitle': target,
                           'legend_title': 'Legend'
