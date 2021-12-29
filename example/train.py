@@ -27,6 +27,8 @@ if __name__ == '__main__':
     # name and generate predictor code
     p_name = 'arrival_forecast_example'
     json_ai = json_ai_from_problem(train_df, problem_definition=pdef)
+
+    # let's specify a quick mixer for this example
     json_ai.outputs['Traffic'].mixers = [
         {
             "module": "SkTime",
@@ -36,9 +38,9 @@ if __name__ == '__main__':
             }
         }
     ]
-    predictor_class_code = code_from_json_ai(json_ai)
 
     # instantiate and train predictor
+    predictor_class_code = code_from_json_ai(json_ai)
     predictor = predictor_from_code(predictor_class_code)
     predictor.learn(train_df)
 

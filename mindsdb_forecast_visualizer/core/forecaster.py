@@ -1,5 +1,5 @@
 import traceback
-from typing import Union, Optional
+from typing import Union
 from copy import deepcopy
 from itertools import product
 from collections import OrderedDict
@@ -8,27 +8,24 @@ import numpy as np
 import pandas as pd
 from mindsdb_forecast_visualizer.core.plotter import plot
 from lightwood.data.cleaner import _standardize_datetime
-from lightwood.mixer import Neural, Unit, LightGBM, LightGBMArray, SkTime, Regression, QClassic
 
 
 def forecast(model,
-             data: pd.DataFrame,
+             data: pd.DataFrame,  # data for which forecasts will be made. Note that if a predictor has cold start, you need to provide a warm_start_offset for best results.
              subset: Union[list, None] = None,  # groups to visualize
              show_anomaly: bool = False,
              renderer: str = 'browser',
              backfill: pd.DataFrame = pd.DataFrame(),
-             show_train_fit: bool = True,  # whether to show residuals or not
+             prediction_arguments: dict = {},
+             show_insample: bool = True,  # whether to show residuals or not
              predargs: dict = {},  # predictor arguments for inference
              warm_start_offset: Union[bool, int] = 0  # None
              ):
-    # TODO: make the sktime viz default, and opt to show residuals only if flag is active
-    # this means `data` should be the forecasted from the iloc[0]
-    # TODO: make sure show_train_fit etc is compatible with all mixers/ensembles
-    # TODO: add warm_start_offset once the rest is correct
-    # prediction advanced args TODO pass in settings
+    # TODO: add warm_start_offset
+    # TODO: pass prediction arguments in settings
 
-    if len(backfill) and show_train_fit:
-        raise Exception("Either pass all data at once if you want to `show_train_fit`, or decativate this option and pass training data as backfill.")  # noqa
+    if show_insample and len(backfill) == 0:
+        raise Exception("You must pass a dataframe with the predictor's training data to show in-sample forecasts.")
 
     # instantiate series according to groups
     group_values = OrderedDict()
@@ -74,34 +71,33 @@ def forecast(model,
 
                 # add data to backfill, if any
                 if len(filtered_backfill) > 0:
-                    pred_target += [None for _ in range(len(filtered_backfill))]
-                    conf_lower += [None for _ in range(len(filtered_backfill))]
-                    conf_upper += [None for _ in range(len(filtered_backfill))]
-                    anomalies += [None for _ in range(len(filtered_backfill))]
                     real_target += [float(r) for r in filtered_backfill[target]]
 
-                # forecast
-                if show_train_fit:
-                    predargs['forecast_offset'] = -idx
+                # forecast & divide into in-sample and out-sample predictions, if required
+                if show_insample:
+                    offset = predargs.get('forecast_offset', 0)
+                    predargs['forecast_offset'] = idx-len(filtered_backfill)
+                    model_fit = model.predict(filtered_backfill, args=predargs)
+                    predargs['forecast_offset'] = offset
+                else:
+                    model_fit = None
+                    if len(filtered_backfill) > 0:
+                        pred_target += [None for _ in range(len(filtered_backfill))]
+                        conf_lower += [None for _ in range(len(filtered_backfill))]
+                        conf_upper += [None for _ in range(len(filtered_backfill))]
+                        anomalies += [None for _ in range(len(filtered_backfill))]
 
-                predictions = model.predict(filtered_data, args=predargs)
+                model_forecast = model.predict(filtered_data, args=predargs)  # [idx-warm_start_offset:]
                 real_target += [float(r) for r in filtered_data[target]][:tss.nr_predictions]
 
                 # convert one-step-ahead predictions to unitary lists
-                if not isinstance(predictions['prediction'].iloc[0], list):
+                if not isinstance(model_forecast['prediction'].iloc[0], list):
                     for k in ['prediction', 'lower', 'upper'] + [f'order_{i}' for i in tss.order_by]:
-                        predictions[k] = predictions[k].apply(
-                            lambda x: [x])
+                        model_forecast[k] = model_forecast[k].apply(lambda x: [x])
+                        if show_insample:
+                            model_fit[k] = model_fit[k].apply(lambda x: [x])
 
-                # divide into in-sample and out-sample predictions, if required
-                if show_train_fit:
-                    model_fit = predictions[:idx-warm_start_offset]
-                    model_forecast = predictions[idx-warm_start_offset:]
-                else:
-                    model_fit = None
-                    model_forecast = predictions
-
-                if show_train_fit:
+                if show_insample:
                     pred_target += [p[0] for p in model_fit['prediction']]
                     conf_lower += [p[0] for p in model_fit['lower']]
                     conf_upper += [p[0] for p in model_fit['upper']]

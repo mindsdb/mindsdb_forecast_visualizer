@@ -21,13 +21,20 @@ if __name__ == '__main__':
     # Load DataFrame with queries
     df = pd.read_csv('./arrivals.csv')
     train_df, _, query_df = stratify(df,
-                              pct_train=0.8,
-                              pct_dev=0,
-                              pct_test=0.2,
-                              stratify_on=['Country'],
-                              seed=1,
-                              reshuffle=False)
+                                     pct_train=0.8,
+                                     pct_dev=0,
+                                     pct_test=0.2,
+                                     stratify_on=['Country'],
+                                     seed=1,
+                                     reshuffle=False)
 
     # Specify series and plot
     subset = [{'Country': 'UK'}, {'Country': 'US'}]  # None will plot all available series
-    forecast(predictor, query_df, subset=subset, backfill=train_df)
+
+    forecast(
+        predictor,
+        query_df,
+        subset=subset,
+        backfill=train_df,
+        show_insample=False
+    )
