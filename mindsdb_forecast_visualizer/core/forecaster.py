@@ -85,7 +85,7 @@ def forecast(model,
                     predargs['forecast_offset'] = -idx
 
                 predictions = model.predict(filtered_data, args=predargs)
-                real_target += [float(r) for r in filtered_data[target]]
+                real_target += [float(r) for r in filtered_data[target]][:tss.nr_predictions]
 
                 # convert one-step-ahead predictions to unitary lists
                 if not isinstance(predictions['prediction'].iloc[0], list):
