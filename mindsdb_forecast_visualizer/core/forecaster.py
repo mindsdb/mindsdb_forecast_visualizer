@@ -17,6 +17,7 @@ def forecast(model,
              show_anomaly: bool = False,
              renderer: str = 'browser',
              backfill: pd.DataFrame = pd.DataFrame(),
+             show_one_steps: bool = False,  # whether to show residuals or not (@TODO: make the sktime viz default, and opt to show residuals only if this is active)
              predargs: dict = {}  # predictor arguments for inference
              ):
 
@@ -95,7 +96,7 @@ def forecast(model,
 
                 # add one-step-ahead predictions for all observed data points if mixer supports it
                 if idx > 0:
-                    if not isinstance(model.ensemble.mixers[model.ensemble.best_index], SkTime):
+                    if not isinstance(model.ensemble.mixers[model.ensemble.best_index], SkTime) and show_one_steps:
                         predargs['forecast_offset'] = -idx
                         preds = model.predict(filtered_data[:idx], args=predargs)
 
@@ -111,6 +112,14 @@ def forecast(model,
                             time_target += [preds[f'order_{order[0]}'][i][0]]
                             if 'anomaly' in preds.columns:
                                 anomalies += [preds['anomaly'][i]]
+                    elif not show_one_steps:
+                        for i in range(idx):
+                            pred_target += [None]
+                            conf_lower += [None]
+                            conf_upper += [None]
+                            time_target += [None]
+                            if 'anomaly' in model_forecast.columns:
+                                anomalies += [None]
 
                 fcst = {
                     # forecast corresponds to predicted arrays for the first query data point
@@ -140,7 +149,7 @@ def forecast(model,
                 for i in range(len(pred_target) - len(time_target)):
                     time_target += [time_target[-1] + delta]
 
-                conf = round(np.array(model_forecast['confidence'][0][0]).mean(), 2)
+                conf = round(np.array(model_forecast['confidence'].iloc[0][0]).mean(), 2)
                 if g != ():
                     title = f'MindsDB T+{forecasting_window} forecast for group {g} (confidence: {conf})'
                 else:
