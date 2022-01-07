@@ -11,18 +11,25 @@ from lightwood.data.cleaner import _standardize_datetime
 
 
 def forecast(model,
-             data: pd.DataFrame,  # data for which forecasts will be made. Note that if a predictor has cold start, you need to provide a warm_start_offset for best results.
-             subset: Union[list, None] = None,  # groups to visualize
+             data: pd.DataFrame,
+             subset: Union[list, None] = None,
              show_anomaly: bool = False,
              renderer: str = 'browser',
              backfill: pd.DataFrame = pd.DataFrame(),
-             prediction_arguments: dict = {},
-             show_insample: bool = True,  # whether to show residuals or not
-             predargs: dict = {},  # predictor arguments for inference
-             warm_start_offset: Union[bool, int] = 0  # None
+             show_insample: bool = True,
+             predargs: dict = {},
+             warm_start_offset: Union[bool, int] = None
              ):
-    # TODO: add warm_start_offset
-    # TODO: pass prediction arguments in settings
+    """
+    :param data: data for which forecasts will be made. Note that if a predictor has cold start, you need to provide a warm_start_offset for best results.
+    :param subset: what groups to visualize, provided a predictor that was trained with a group-by set of columns
+    :param show_anomaly: whether to show anomaly bars
+    :param renderer: plots can be generated using any supported plotly backend
+    :param backfill: dataframe that is used as historical context in the visualization, but for which no forecasts are needed. NOTE: MindsDB, Lightwood and this tool all assume there is no gap between the backfill data and the forecasted data.
+    :param show_insample: if True, in-sample forecasts will be plotted for any available backfill data.
+    :param predargs: arguments passed to the predictor when generating forecasts for the visualization.
+    :param warm_start_offset: how many rows from the backfill dataframe should be appended at the start of `data` to serve as historical context for mixers that have a cold start (e.g. neural, gbm).
+    """  # noqa
 
     if show_insample and len(backfill) == 0:
         raise Exception("You must pass a dataframe with the predictor's training data to show in-sample forecasts.")
@@ -38,11 +45,12 @@ def forecast(model,
     group_keys = group_values.keys()
     groups = list(product(*[set(x) for x in group_values.values()]))
 
+    target = model.problem_definition.target
+    forecasting_window = tss.horizon
+    order = tss.order_by
+
     if warm_start_offset is None:
         warm_start_offset = tss.window
-
-    target = model.problem_definition.target
-    order = tss.order_by
 
     # extract each series, predict for it, then plot
     for g in groups:
@@ -51,15 +59,13 @@ def forecast(model,
 
             if filtered_data.shape[0] > 0:
                 print(f'Plotting for group {g}...')
+
+                # check offset for warm start
+                filtered_data = pd.concat([filtered_backfill.iloc[-warm_start_offset:], filtered_data])
+
+
                 if not tss.allow_incomplete_history:
                     assert filtered_data.shape[0] > tss.window
-
-                forecasting_window = tss.nr_predictions
-                # cutoff between in and out-sample for test data
-                idx = 0  # filtered_data.shape[0] - forecasting_window - warm_start_offset
-
-                if idx < 0:
-                    raise Exception("Too little data.")
 
                 # arrays to plot
                 pred_target = []
@@ -76,7 +82,7 @@ def forecast(model,
                 # forecast & divide into in-sample and out-sample predictions, if required
                 if show_insample:
                     offset = predargs.get('forecast_offset', 0)
-                    predargs['forecast_offset'] = idx-len(filtered_backfill)
+                    predargs['forecast_offset'] = -len(filtered_backfill)
                     model_fit = model.predict(filtered_backfill, args=predargs)
                     predargs['forecast_offset'] = offset
                 else:
@@ -87,8 +93,10 @@ def forecast(model,
                         conf_upper += [None for _ in range(len(filtered_backfill))]
                         anomalies += [None for _ in range(len(filtered_backfill))]
 
-                model_forecast = model.predict(filtered_data, args=predargs)  # [idx-warm_start_offset:]
-                real_target += [float(r) for r in filtered_data[target]][:tss.nr_predictions]
+                predargs['forecast_offset'] = -warm_start_offset
+                model_forecast = model.predict(filtered_data, args=predargs).iloc[warm_start_offset:]
+                filtered_data = filtered_data.iloc[warm_start_offset:]
+                real_target += [float(r) for r in filtered_data[target]][:tss.horizon]
 
                 # convert one-step-ahead predictions to unitary lists
                 if not isinstance(model_forecast['prediction'].iloc[0], list):
@@ -104,19 +112,12 @@ def forecast(model,
                     time_target += [p[0] for p in model_fit[f'order_{order[0]}']]
                     if 'anomaly' in model_fit.columns:
                         anomalies += [p for p in model_fit['anomaly']]
-                else:
-                    pred_target += [None for _ in range(idx+warm_start_offset)]
-                    conf_lower += [None for _ in range(idx+warm_start_offset)]
-                    conf_upper += [None for _ in range(idx+warm_start_offset)]
-                    time_target += [None for _ in range(idx+warm_start_offset)]
-                    if 'anomaly' in model_forecast.columns:
-                        anomalies += [None for _ in range(idx+warm_start_offset)]
 
                 # forecast corresponds to predicted arrays for the first out-of-sample query data point
                 fcst = {
-                    'prediction': model_forecast['prediction'].iloc[warm_start_offset],
-                    'lower': model_forecast['lower'].iloc[warm_start_offset],
-                    'upper': model_forecast['upper'].iloc[warm_start_offset]
+                    'prediction': model_forecast['prediction'].iloc[0],
+                    'lower': model_forecast['lower'].iloc[0],
+                    'upper': model_forecast['upper'].iloc[0]
                 }
 
                 # wrap if needed
@@ -160,7 +161,7 @@ def forecast(model,
                            pred_target,
                            conf_lower,
                            conf_upper,
-                           fh_idx=len(pred_target)-tss.nr_predictions,
+                           fh_idx=len(pred_target)-tss.horizon,
                            renderer=renderer,
                            labels=titles,
                            anomalies=anomalies if show_anomaly else None,
