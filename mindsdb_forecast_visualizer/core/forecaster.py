@@ -7,6 +7,8 @@ from collections import OrderedDict
 import numpy as np
 import pandas as pd
 from mindsdb_forecast_visualizer.core.plotter import plot
+
+from lightwood.mixer.nhits import NHitsMixer
 from lightwood.data.cleaner import _standardize_datetime
 
 
@@ -61,7 +63,10 @@ def forecast(model,
                 print(f'Plotting for group {g}...')
 
                 # check offset for warm start
-                filtered_data = pd.concat([filtered_backfill.iloc[-warm_start_offset:], filtered_data])
+                if isinstance(model.mixers[model.ensemble.indexes_by_accuracy[0]], NHitsMixer):
+                    filtered_data = pd.concat([filtered_backfill.iloc[-warm_start_offset:], filtered_data.iloc[[0]]])
+                else:
+                    filtered_data = pd.concat([filtered_backfill.iloc[-warm_start_offset:], filtered_data])
 
 
                 if not tss.allow_incomplete_history:
@@ -138,12 +143,12 @@ def forecast(model,
 
                 # fix timestamps
                 time_target = [_standardize_datetime(p) for p in filtered_data[order[0]]]
-                delta = pd.Series(time_target).diff().value_counts().index[0]  # inferred
+                delta = model.ts_analysis['deltas'][g]
                 for i in range(len(pred_target) - len(time_target)):
                     time_target += [time_target[-1] + delta]
 
                 # round confidences
-                conf = round(np.array(model_forecast['confidence'].iloc[0][0]).mean(), 2)
+                conf = model_forecast['confidence'].values.mean()
 
                 # set titles and legends
                 if g != ():
