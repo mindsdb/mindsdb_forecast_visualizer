@@ -11,15 +11,9 @@ if __name__ == '__main__':
     train_df, _, _ = stratify(df, pct_train=0.8, pct_dev=0, pct_test=0.2, stratify_on=gby, seed=1, reshuffle=False)
 
     pdef = ProblemDefinition.from_dict({'target': 'Traffic',              # column to forecast
-                                        'time_aim': 120,                  # time budget to build a predictor
-                                        'nfolds': 10,
-                                        'anomaly_detection': True,
-                                        'fit_on_all': True,
                                         'timeseries_settings': {
-                                            'use_previous_target': True,
                                             'group_by': gby,
-                                            'allow_incomplete_history': True,
-                                            'nr_predictions': 5,          # forecast horizon length
+                                            'horizon': 5,                 # forecast horizon length
                                             'order_by': ['T'],
                                             'window': 10                  # qty of previous data to use when predicting
                                         }})
@@ -29,7 +23,7 @@ if __name__ == '__main__':
     json_ai = json_ai_from_problem(train_df, problem_definition=pdef)
 
     # let's specify a quick mixer for this example
-    json_ai.outputs['Traffic'].mixers = [
+    json_ai.model['args']['submodels'] = [
         {
             "module": "SkTime",
             "args": {

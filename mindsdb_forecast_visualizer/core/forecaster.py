@@ -143,7 +143,7 @@ def forecast(model,
 
                 # fix timestamps
                 time_target = [_standardize_datetime(p) for p in filtered_data[order[0]]]
-                delta = model.ts_analysis['deltas'][g]
+                delta = model.ts_analysis['deltas'][g] if g else model.ts_analysis['deltas']['__default']
                 for i in range(len(pred_target) - len(time_target)):
                     time_target += [time_target[-1] + delta]
 
