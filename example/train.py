@@ -10,30 +10,27 @@ if __name__ == '__main__':
     gby = ['Country']
     train_df, _, _ = stratify(df, pct_train=0.8, pct_dev=0, pct_test=0.2, stratify_on=gby, seed=1, reshuffle=False)
 
-    pdef = ProblemDefinition.from_dict({'target': 'Traffic',              # column to forecast
+    pdef = ProblemDefinition.from_dict({'target': 'Traffic',      # column to forecast
                                         'timeseries_settings': {
+                                            'window': 10,         # qty of previous data to use when predicting
+                                            'horizon': 5,         # forecast horizon length
+                                            'order_by': 'T',
                                             'group_by': gby,
-                                            'horizon': 5,                 # forecast horizon length
-                                            'order_by': ['T'],
-                                            'window': 10                  # qty of previous data to use when predicting
                                         }})
 
     # name and generate predictor code
     p_name = 'arrival_forecast_example'
     json_ai = json_ai_from_problem(train_df, problem_definition=pdef)
 
-    # let's specify a quick mixer for this example
+    # specify a quick mixer for this example
     json_ai.model['args']['submodels'] = [
         {
             "module": "SkTime",
-            "args": {
-                "stop_after": "$problem_definition.seconds_per_mixer",
-                "n_ts_predictions": "$problem_definition.timeseries_settings.nr_predictions"
-            }
+            "args": {}
         }
     ]
 
-    # instantiate and train predictor
+    # generate and train predictor
     predictor_class_code = code_from_json_ai(json_ai)
     predictor = predictor_from_code(predictor_class_code)
     predictor.learn(train_df)
