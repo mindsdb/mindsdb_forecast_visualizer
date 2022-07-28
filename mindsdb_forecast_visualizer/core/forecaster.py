@@ -56,6 +56,8 @@ def forecast(model,
 
     # extract each series, predict for it, then plot
     for g in groups:
+        if g == ():
+            g = '__default'
         try:
             filtered_backfill, filtered_data = get_group(g, subset, data, backfill, group_keys, order)
 
@@ -114,7 +116,7 @@ def forecast(model,
                     pred_target += [p[0] for p in model_fit['prediction']]
                     conf_lower += [p[0] for p in model_fit['lower']]
                     conf_upper += [p[0] for p in model_fit['upper']]
-                    time_target += [p[0] for p in model_fit[f'order_{order[0]}']]
+                    time_target += [p[0] for p in model_fit[f'order_{order}']]
                     if 'anomaly' in model_fit.columns:
                         anomalies += [p for p in model_fit['anomaly']]
 
@@ -142,8 +144,11 @@ def forecast(model,
                 conf_upper += [p for p in fcst['upper']]
 
                 # fix timestamps
-                time_target = [_standardize_datetime(p) for p in filtered_data[order[0]]]
-                delta = model.ts_analysis['deltas'][g] if g else model.ts_analysis['deltas']['__default']
+                time_target = [_standardize_datetime(p) for p in filtered_data[order]]
+                try:
+                    delta = model.ts_analysis['deltas'][g]
+                except:
+                    delta = model.ts_analysis['deltas'][tuple([str(gg) for gg in g])]
                 for i in range(len(pred_target) - len(time_target)):
                     time_target += [time_target[-1] + delta]
 
