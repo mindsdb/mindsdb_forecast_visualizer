@@ -1,6 +1,6 @@
 __title__ = 'mindsdb_forecast_visualizer'
 __package_name__ = 'mindsdb_forecast_visualizer'
-__version__ = '22.8.1.1'
+__version__ = '22.8.4.0'
 __description__ = "Companion package to visualizer forecasts made with MindsDB predictors."
 __email__ = "community@mindsdb.com"
 __author__ = 'MindsDB Inc'

@@ -25,7 +25,7 @@ if __name__ == '__main__':
     # specify a quick mixer for this example
     json_ai.model['args']['submodels'] = [
         {
-            "module": "SkTime",
+            "module": "ETSMixer",
             "args": {}
         }
     ]
