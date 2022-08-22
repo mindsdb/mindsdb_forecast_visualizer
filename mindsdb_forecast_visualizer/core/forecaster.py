@@ -7,9 +7,6 @@ from collections import OrderedDict
 import pandas as pd
 from mindsdb_forecast_visualizer.core.plotter import plot
 
-from lightwood.ensemble.best_of import BestOf
-from lightwood.ensemble.ts_stacked_ensemble import TsStackedEnsemble
-from lightwood.mixer.nhits import NHitsMixer
 from lightwood.data.cleaner import _standardize_datetime
 
 
@@ -36,6 +33,7 @@ def forecast(model,
 
     if show_insample and len(backfill) == 0:
         raise Exception("You must pass a dataframe with the predictor's training data to show in-sample forecasts.")
+    predargs['time_format'] = 'infer'
 
     # instantiate series according to groups
     group_values = OrderedDict()
@@ -60,19 +58,14 @@ def forecast(model,
         if g == ():
             g = '__default'
         try:
-            filtered_backfill, filtered_data = get_group(g, subset, data, backfill, group_keys, order)
-            original_filtered_data = filtered_data
+            filtered_backfill, test_data = get_group(g, subset, data, backfill, group_keys, order)
 
-            if filtered_data.shape[0] > 0:
+            if test_data.shape[0] > 0:
                 print(f'Plotting for group {g}...')
+                original_test_data = test_data
+                test_data = test_data.iloc[[0]]  # library only supports plotting first horizon inside test dataset
 
-                # check offset for warm start
-                if isinstance(model.ensemble, BestOf) and isinstance(model.mixers[model.ensemble.indexes_by_accuracy[0]], NHitsMixer) \
-                        or isinstance(model.ensemble, TsStackedEnsemble):
-                    filtered_data = pd.concat([filtered_backfill.iloc[-warm_start_offset:], filtered_data.iloc[[0]]])
-                else:
-                    filtered_data = pd.concat([filtered_backfill.iloc[-warm_start_offset:], filtered_data])
-
+                filtered_data = pd.concat([filtered_backfill.iloc[-warm_start_offset:], test_data])
                 if not tss.allow_incomplete_history:
                     assert filtered_data.shape[0] > tss.window
 
@@ -90,13 +83,12 @@ def forecast(model,
 
                 # forecast & divide into in-sample and out-sample predictions, if required
                 if show_insample:
-                    offset = predargs.get('forecast_offset', 0)
                     predargs['forecast_offset'] = -len(filtered_backfill)
                     model_fit = model.predict(filtered_backfill, args=predargs)
-                    predargs['forecast_offset'] = offset
                 else:
                     model_fit = None
                     if len(filtered_backfill) > 0:
+                        time_target += [t for t in filtered_backfill[tss.order_by]]
                         pred_target += [None for _ in range(len(filtered_backfill))]
                         conf_lower += [None for _ in range(len(filtered_backfill))]
                         conf_upper += [None for _ in range(len(filtered_backfill))]
@@ -104,10 +96,9 @@ def forecast(model,
 
                 predargs['forecast_offset'] = -warm_start_offset
                 model_forecast = model.predict(filtered_data, args=predargs).iloc[warm_start_offset:]
-                filtered_data = filtered_data.iloc[predargs['forecast_offset']:]
-                real_target += [float(r) for r in original_filtered_data[target]][:tss.horizon]
+                real_target += [r for r in original_test_data[target]][:tss.horizon]
 
-                # convert one-step-ahead predictions to unitary lists
+                # edge case: convert one-step-ahead predictions to unitary lists
                 if not isinstance(model_forecast['prediction'].iloc[0], list):
                     for k in ['prediction', 'lower', 'upper'] + [f'order_{i}' for i in tss.order_by]:
                         model_forecast[k] = model_forecast[k].apply(lambda x: [x])
@@ -118,11 +109,11 @@ def forecast(model,
                     pred_target += [p[0] for p in model_fit['prediction']]
                     conf_lower += [p[0] for p in model_fit['lower']]
                     conf_upper += [p[0] for p in model_fit['upper']]
-                    time_target += [p[0] for p in model_fit[f'order_{order}']]
+                    # time_target += [p[0] for p in model_fit[f'order_{order}']]
                     if 'anomaly' in model_fit.columns:
                         anomalies += [p for p in model_fit['anomaly']]
 
-                # forecast corresponds to predicted arrays for the first out-of-sample query data point
+                # forecast always corresponds to predicted arrays for the first out-of-sample query data point
                 fcst = {
                     'prediction': model_forecast['prediction'].iloc[0],
                     'lower': model_forecast['lower'].iloc[0],
@@ -144,16 +135,7 @@ def forecast(model,
                 pred_target += [p for p in fcst['prediction']]
                 conf_lower += [p for p in fcst['lower']]
                 conf_upper += [p for p in fcst['upper']]
-
-                # fix timestamps
-                time_target = [_standardize_datetime(p) for p in filtered_data[order]]
-                # time_target = [p for p in filtered_data[order]]
-                try:
-                    delta = model.ts_analysis['deltas'][g]
-                except:
-                    delta = model.ts_analysis['deltas'][tuple([str(gg) for gg in g])]
-                for i in range(len(pred_target) - len(time_target)):
-                    time_target += [time_target[-1] + delta]
+                time_target += [r for r in original_test_data[tss.order_by]][:tss.horizon]
 
                 # round confidences
                 conf = model_forecast['confidence'].values.mean()
@@ -192,11 +174,11 @@ def get_group(g, subset, data, backfill, group_keys, order):
     group_dict = {k: v for k, v in zip(group_keys, g)}
 
     if subset is None or group_dict in subset:
-        filtered_data = data
-        filtered_backfill = backfill
+        filtered_data = deepcopy(data)
+        filtered_backfill = deepcopy(backfill)
         for k, v in group_dict.items():
-            filtered_data = deepcopy(filtered_data[filtered_data[k] == v])
-            filtered_backfill = deepcopy(filtered_backfill[filtered_backfill[k] == v])
+            filtered_data = filtered_data[filtered_data[k] == v]
+            filtered_backfill = filtered_backfill[filtered_backfill[k] == v]
 
     filtered_data = filtered_data.drop_duplicates(subset=order)
     filtered_backfill = filtered_backfill.drop_duplicates(subset=order)

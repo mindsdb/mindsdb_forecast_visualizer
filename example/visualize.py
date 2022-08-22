@@ -29,7 +29,7 @@ if __name__ == '__main__':
                                      reshuffle=False)
 
     # Specify series and plot
-    subset = [{'Country': 'UK'}, {'Country': 'US'}]  # None will plot all available series
+    subset = None  # [{'Country': 'UK'}, {'Country': 'US'}]  # None will plot all available series
 
     forecast(
         predictor,
