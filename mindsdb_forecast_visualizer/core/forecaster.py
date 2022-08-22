@@ -4,10 +4,11 @@ from copy import deepcopy
 from itertools import product
 from collections import OrderedDict
 
-import numpy as np
 import pandas as pd
 from mindsdb_forecast_visualizer.core.plotter import plot
 
+from lightwood.ensemble.best_of import BestOf
+from lightwood.ensemble.ts_stacked_ensemble import TsStackedEnsemble
 from lightwood.mixer.nhits import NHitsMixer
 from lightwood.data.cleaner import _standardize_datetime
 
@@ -60,16 +61,17 @@ def forecast(model,
             g = '__default'
         try:
             filtered_backfill, filtered_data = get_group(g, subset, data, backfill, group_keys, order)
+            original_filtered_data = filtered_data
 
             if filtered_data.shape[0] > 0:
                 print(f'Plotting for group {g}...')
 
                 # check offset for warm start
-                if isinstance(model.mixers[model.ensemble.indexes_by_accuracy[0]], NHitsMixer):
+                if isinstance(model.ensemble, BestOf) and isinstance(model.mixers[model.ensemble.indexes_by_accuracy[0]], NHitsMixer) \
+                        or isinstance(model.ensemble, TsStackedEnsemble):
                     filtered_data = pd.concat([filtered_backfill.iloc[-warm_start_offset:], filtered_data.iloc[[0]]])
                 else:
                     filtered_data = pd.concat([filtered_backfill.iloc[-warm_start_offset:], filtered_data])
-
 
                 if not tss.allow_incomplete_history:
                     assert filtered_data.shape[0] > tss.window
@@ -102,8 +104,8 @@ def forecast(model,
 
                 predargs['forecast_offset'] = -warm_start_offset
                 model_forecast = model.predict(filtered_data, args=predargs).iloc[warm_start_offset:]
-                filtered_data = filtered_data.iloc[warm_start_offset:]
-                real_target += [float(r) for r in filtered_data[target]][:tss.horizon]
+                filtered_data = filtered_data.iloc[predargs['forecast_offset']:]
+                real_target += [float(r) for r in original_filtered_data[target]][:tss.horizon]
 
                 # convert one-step-ahead predictions to unitary lists
                 if not isinstance(model_forecast['prediction'].iloc[0], list):
@@ -145,6 +147,7 @@ def forecast(model,
 
                 # fix timestamps
                 time_target = [_standardize_datetime(p) for p in filtered_data[order]]
+                # time_target = [p for p in filtered_data[order]]
                 try:
                     delta = model.ts_analysis['deltas'][g]
                 except:
