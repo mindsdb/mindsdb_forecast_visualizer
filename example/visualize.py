@@ -4,7 +4,7 @@ To train a Lightwood predictor, refer to example/train.py
 To visualize from a Jupyter notebook, refer to example/visualize.ipynb
 """
 import pandas as pd
-from lightwood.data.splitter import stratify
+from dataprep_ml.splitters import stratify
 from lightwood.api.high_level import predictor_from_state
 from mindsdb_forecast_visualizer.core.dispatcher import forecast
 
@@ -28,8 +28,8 @@ if __name__ == '__main__':
                                      seed=1,
                                      reshuffle=False)
 
-    # Specify series and plot
-    subset = None  # [{'Country': 'UK'}, {'Country': 'US'}]  # None will plot all available series
+    # Specify series and plot. `None` will plot all available series.
+    subset = [{'Country': 'UK'}, {'Country': 'US'}, {'Country': 'Japan'}, {'Country': 'NZ'}]
 
     forecast(
         predictor,

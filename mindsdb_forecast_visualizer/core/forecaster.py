@@ -3,11 +3,13 @@ from typing import Union
 from copy import deepcopy
 from itertools import product
 from collections import OrderedDict
+import datetime
 
+import numpy as np
 import pandas as pd
 from mindsdb_forecast_visualizer.core.plotter import plot
 
-from lightwood.data.cleaner import _standardize_datetime
+from dataprep_ml.cleaners import _standardize_datetime
 
 
 def forecast(model,
@@ -33,7 +35,6 @@ def forecast(model,
 
     if show_insample and len(backfill) == 0:
         raise Exception("You must pass a dataframe with the predictor's training data to show in-sample forecasts.")
-    predargs['time_format'] = 'infer'
 
     # instantiate series according to groups
     group_values = OrderedDict()
@@ -58,14 +59,20 @@ def forecast(model,
         if g == ():
             g = '__default'
         try:
-            filtered_backfill, test_data = get_group(g, subset, data, backfill, group_keys, order)
+            filtered_backfill, filtered_data = get_group(g, subset, data, backfill, group_keys, order)
 
-            if test_data.shape[0] > 0:
+            if filtered_data.shape[0] > 0:
                 print(f'Plotting for group {g}...')
-                original_test_data = test_data
-                test_data = test_data.iloc[[0]]  # library only supports plotting first horizon inside test dataset
 
-                filtered_data = pd.concat([filtered_backfill.iloc[-warm_start_offset:], test_data])
+                # check offset for warm start
+                special_mixers = ['GluonTSMixer', 'NHitsMixer']
+                if hasattr(model.ensemble, 'indexes_by_accuracy') and \
+                        (model.mixers[model.ensemble.indexes_by_accuracy[0]].__class__.__name__ in special_mixers):
+                    filtered_data = pd.concat([filtered_backfill.iloc[-warm_start_offset:], filtered_data.iloc[[0]]])
+                else:
+                    filtered_data = pd.concat([filtered_backfill.iloc[-warm_start_offset:], filtered_data])
+
+
                 if not tss.allow_incomplete_history:
                     assert filtered_data.shape[0] > tss.window
 
@@ -83,12 +90,13 @@ def forecast(model,
 
                 # forecast & divide into in-sample and out-sample predictions, if required
                 if show_insample:
+                    offset = predargs.get('forecast_offset', 0)
                     predargs['forecast_offset'] = -len(filtered_backfill)
                     model_fit = model.predict(filtered_backfill, args=predargs)
+                    predargs['forecast_offset'] = offset
                 else:
                     model_fit = None
                     if len(filtered_backfill) > 0:
-                        time_target += [t for t in filtered_backfill[tss.order_by]]
                         pred_target += [None for _ in range(len(filtered_backfill))]
                         conf_lower += [None for _ in range(len(filtered_backfill))]
                         conf_upper += [None for _ in range(len(filtered_backfill))]
@@ -96,11 +104,12 @@ def forecast(model,
 
                 predargs['forecast_offset'] = -warm_start_offset
                 model_forecast = model.predict(filtered_data, args=predargs).iloc[warm_start_offset:]
-                real_target += [r for r in original_test_data[target]][:tss.horizon]
+                filtered_data = filtered_data.iloc[warm_start_offset:]
+                real_target += [float(r) for r in filtered_data[target]][:tss.horizon]
 
-                # edge case: convert one-step-ahead predictions to unitary lists
+                # convert one-step-ahead predictions to unitary lists
                 if not isinstance(model_forecast['prediction'].iloc[0], list):
-                    for k in ['prediction', 'lower', 'upper'] + [f'order_{i}' for i in tss.order_by]:
+                    for k in ['prediction', 'lower', 'upper'] + [f'order_{tss.order_by}']:
                         model_forecast[k] = model_forecast[k].apply(lambda x: [x])
                         if show_insample:
                             model_fit[k] = model_fit[k].apply(lambda x: [x])
@@ -109,10 +118,11 @@ def forecast(model,
                     pred_target += [p[0] for p in model_fit['prediction']]
                     conf_lower += [p[0] for p in model_fit['lower']]
                     conf_upper += [p[0] for p in model_fit['upper']]
+                    time_target += [p[0] for p in model_fit[f'order_{order}']]
                     if 'anomaly' in model_fit.columns:
                         anomalies += [p for p in model_fit['anomaly']]
 
-                # forecast always corresponds to predicted arrays for the first out-of-sample query data point
+                # forecast corresponds to predicted arrays for the first out-of-sample query data point
                 fcst = {
                     'prediction': model_forecast['prediction'].iloc[0],
                     'lower': model_forecast['lower'].iloc[0],
@@ -134,10 +144,23 @@ def forecast(model,
                 pred_target += [p for p in fcst['prediction']]
                 conf_lower += [p for p in fcst['lower']]
                 conf_upper += [p for p in fcst['upper']]
-                time_target += [r for r in original_test_data[tss.order_by]][:tss.horizon]
+
+                # fix timestamps
+                time_target = [pd.to_datetime(p).timestamp() for p in filtered_data[order]]
+                try:
+                    delta = model.ts_analysis['deltas'][g]
+                except:
+                    delta = model.ts_analysis['deltas'].get(tuple([str(gg) for gg in g]),
+                                                            model.ts_analysis['deltas']['__default'])
+
+                for i in range(len(pred_target) - len(time_target)):
+                    time_target.insert(0, time_target[0] - delta)
+
+
+                time_target = [datetime.datetime.utcfromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S') for ts in time_target]
 
                 # round confidences
-                conf = model_forecast['confidence'].values.mean()
+                conf = np.array([np.array(l) for l in model_forecast['confidence'].values]).mean()
 
                 # set titles and legends
                 if g != ():
@@ -161,6 +184,8 @@ def forecast(model,
                            anomalies=anomalies if show_anomaly else None,
                            separate=separate)
                 fig.show()
+            else:
+                print(f"No data for group {g}. Skipping...")
 
         except Exception:
             print(f"Error in group {g}:")
@@ -173,11 +198,11 @@ def get_group(g, subset, data, backfill, group_keys, order):
     group_dict = {k: v for k, v in zip(group_keys, g)}
 
     if subset is None or group_dict in subset:
-        filtered_data = deepcopy(data)
-        filtered_backfill = deepcopy(backfill)
+        filtered_data = data
+        filtered_backfill = backfill
         for k, v in group_dict.items():
-            filtered_data = filtered_data[filtered_data[k] == v]
-            filtered_backfill = filtered_backfill[filtered_backfill[k] == v]
+            filtered_data = deepcopy(filtered_data[filtered_data[k] == v])
+            filtered_backfill = deepcopy(filtered_backfill[filtered_backfill[k] == v])
 
     filtered_data = filtered_data.drop_duplicates(subset=order)
     filtered_backfill = filtered_backfill.drop_duplicates(subset=order)
